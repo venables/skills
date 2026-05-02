@@ -40,9 +40,21 @@ When _not_ to use:
    gemini). The user may name a subset.
 3. **Capture optional focus.** If the user gave context ("look closely at the auth
    changes"), pass `--focus`.
-4. **Run the script** (path: `skills/panel-review/panel-review.sh`).
+4. **Run the script** (path: `skills/panel-review/panel-review.sh`). Prefer running it
+   as a **background Bash** (`run_in_background: true`) and poll progress with
+   `BashOutput`. Reason: panelists run in parallel, but Codex is slow and dominates
+   wall clock — without backgrounding, the foreground Bash call blocks silently for
+   minutes. The script emits unbuffered stderr heartbeats (`panel-review: <name>
+started (pid=…)` and `panel-review: <name> done (exit N)`) and streams each
+   panelist's section to stdout the moment that panelist finishes, so polling
+   `BashOutput` every 30–60 seconds yields real-time visibility. If you do run it in
+   the foreground, pass `timeout: 600000` (10 min) since the default 2-minute Bash
+   timeout will kill the call before Codex returns.
 5. **Read the script's combined output** — it prints one section per panelist with their
-   raw findings, plus a tempdir path containing each panelist's stdout/stderr.
+   raw findings, plus a tempdir path containing each panelist's stdout/stderr. Wait for
+   _all_ panelists to finish before amalgamating; partial output is fine to _show_ the
+   user during the wait, but consensus / disagreement analysis needs every panelist's
+   verdict.
 6. **Amalgamate the findings** in your reply to the user:
    - **Consensus** — issues raised by 2+ panelists, deduplicated. List file:line + the
      core problem and a suggested fix.
@@ -117,7 +129,9 @@ Other knobs:
 - Composes one prompt by prepending `prompts/review.md` to the diff (and optional focus).
 - Spawns each panelist as a background subprocess with read-only / plan-mode flags so
   the reviewer can read repo files but cannot modify anything.
-- Waits for all to finish (with timeout) and prints a combined Markdown report.
+- Streams each panelist's section to stdout the moment that panelist completes, and
+  emits unbuffered stderr heartbeats (`started` / `done`) so a coordinator polling
+  `BashOutput` sees real-time progress instead of one big dump at the end.
 
 ## Notes
 

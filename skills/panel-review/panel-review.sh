@@ -210,9 +210,11 @@ build_argv() {
       argv+=(-- "$PROMPT_CONTENT")
       ;;
     opencode)
+      # `opencode run` takes the message positionally; --prompt is not a flag here
+      # and would make opencode dump its --help and exit 1.
       argv=(opencode run --agent "$OPENCODE_AGENT")
       [[ -n "$OPENCODE_MODEL" ]] && argv+=(--model "$OPENCODE_MODEL")
-      argv+=(--prompt "$PROMPT_CONTENT")
+      argv+=(-- "$PROMPT_CONTENT")
       ;;
     gemini)
       argv=(gemini --approval-mode plan)
@@ -254,12 +256,18 @@ for p in "${PANELISTS[@]}"; do
 
   ( run_panelist "${argv[@]}" >"$out" 2>"$err"; echo $? >"$rc" ) &
   PIDS+=($!)
+  echo "panel-review: ${p} started (pid=$!)" >&2
 done
 
-# Wait for everything; ignore wait's exit code (children's rcs live in $OUT_DIR).
-[[ ${#PIDS[@]} -gt 0 ]] && wait "${PIDS[@]}" 2>/dev/null || true
-
-# ----- Print combined results -----
+# ----- Stream combined results as each panelist finishes -----
+#
+# Why streaming: each panelist runs in parallel, but the slowest one (often codex)
+# dominates wall clock. Printing sections only after `wait` returns means the
+# coordinator (Claude or a human) sees nothing until the slowest finishes. Polling
+# the per-panelist .rc files lets us print each section the moment it lands, and
+# emit a stderr heartbeat so progress is visible when the script is run as a
+# background Bash with BashOutput polling. stderr is unbuffered by libc; stdout
+# may block-buffer when piped, so heartbeats go to stderr on purpose.
 ANY_FAIL=0
 echo "# Panel review"
 echo
@@ -269,7 +277,9 @@ echo "- Outputs: \`$OUT_DIR\`"
 [[ -n "$FOCUS" ]] && echo "- Focus: $FOCUS"
 echo
 
-for p in "${PANELISTS[@]}"; do
+print_section() {
+  local p="$1"
+  local rc_val
   rc_val="$(cat "$OUT_DIR/$p.rc" 2>/dev/null || echo "?")"
   echo "## ${p} (exit ${rc_val})"
   echo
@@ -292,6 +302,32 @@ for p in "${PANELISTS[@]}"; do
     fi
   fi
   echo
+  echo "panel-review: ${p} done (exit ${rc_val})" >&2
+}
+
+# Track which panelists have already been printed. Bash 3.2 (macOS default) has
+# no associative arrays, so we keep a parallel indexed array of names.
+PRINTED=()
+TOTAL=${#PANELISTS[@]}
+DONE_COUNT=0
+while (( DONE_COUNT < TOTAL )); do
+  for p in "${PANELISTS[@]}"; do
+    is_printed=0
+    if [[ ${#PRINTED[@]} -gt 0 ]]; then
+      for x in "${PRINTED[@]}"; do
+        if [[ "$x" == "$p" ]]; then is_printed=1; break; fi
+      done
+    fi
+    (( is_printed )) && continue
+    [[ -s "$OUT_DIR/$p.rc" ]] || continue
+    print_section "$p"
+    PRINTED+=("$p")
+    DONE_COUNT=$((DONE_COUNT + 1))
+  done
+  (( DONE_COUNT < TOTAL )) && sleep 1
 done
+
+# Reap any background PIDs that already exited; harmless if all are gone.
+[[ ${#PIDS[@]} -gt 0 ]] && wait "${PIDS[@]}" 2>/dev/null || true
 
 exit $(( ANY_FAIL ? 2 : 0 ))
