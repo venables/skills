@@ -18,10 +18,11 @@ npx skills add venables/skills --skill optimize-agents-md
 
 ## Skills
 
-| Skill                                             | Description                                                                                          |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [optimize-agents-md](./skills/optimize-agents-md) | Optimize your AGENTS.md (and CLAUDE.md) files according to best practices. Works with monorepos, too |
-| [markdown-footnotes](./skills/markdown-footnotes) | Convert inline markdown links to footnote-style references                                           |
+| Skill                                             | Description                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| [optimize-agents-md](./skills/optimize-agents-md) | Optimize your AGENTS.md (and CLAUDE.md) files according to best practices. Works with monorepos, too                           |
+| [panel-review](./skills/panel-review)             | Fan a code review out to multiple local CLI agents (codex, claude, opencode, gemini) in parallel and amalgamate their findings |
+| [markdown-footnotes](./skills/markdown-footnotes) | Convert inline markdown links to footnote-style references                                                                     |
 
 ## Developing
 
