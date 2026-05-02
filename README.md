@@ -21,6 +21,7 @@ npx skills add venables/skills --skill optimize-agents-md
 | Skill                                             | Description                                                                                          |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | [optimize-agents-md](./skills/optimize-agents-md) | Optimize your AGENTS.md (and CLAUDE.md) files according to best practices. Works with monorepos, too |
+| [markdown-footnotes](./skills/markdown-footnotes) | Convert inline markdown links to footnote-style references                                           |
 
 ## Developing
 
