@@ -58,12 +58,25 @@ started (pid=…)` and `panel-review: <name> done (exit N)`) and streams each
    `BashOutput` every 10–15 seconds yields real-time visibility. If you do run it in
    the foreground, pass `timeout: 600000` (10 min) since the default 2-minute Bash
    timeout will kill the call before Codex returns.
-6. **Read the script's combined output** — it prints one section per panelist with their
+6. **Set up live progress UX.** Right before (or right after) launching the script:
+   - Call `TaskCreate` with one task per chosen panelist (`Review: codex`,
+     `Review: claude`, …) plus a final `Amalgamate findings` task. Mark each
+     panelist's task `in_progress` once the script's `started` heartbeat for that
+     panelist arrives.
+   - Each `BashOutput` poll: scan stderr for `panel-review: <name> done (exit N)`.
+     When you see one, mark that panelist's task `completed` (or note the failure)
+     **and** post a single-line user-visible status: `✓ <name> done in <Ts> — N
+findings, top severity <SEV>` (or `✓ <name> — NO_FINDINGS` / `✗ <name> failed
+(exit N)`). One line per finish. Do not paste full panelist sections into chat
+     as they arrive — that's noise; synthesis is step 8.
+   - After the last `done` heartbeat, mark `Amalgamate findings` `in_progress`,
+     proceed to steps 7–8, then mark it `completed`.
+7. **Read the script's combined output** — it prints one section per panelist with their
    raw findings, plus a tempdir path containing each panelist's stdout/stderr. Wait for
    _all_ panelists to finish before amalgamating; partial output is fine to _show_ the
    user during the wait, but consensus / disagreement analysis needs every panelist's
    verdict.
-7. **Amalgamate the findings** in your reply to the user:
+8. **Amalgamate the findings** in your reply to the user:
    - **Consensus** — issues raised by 2+ panelists, deduplicated. List file:line + the
      core problem and a suggested fix.
    - **Unique findings** — per panelist, only the findings no one else mentioned that
@@ -71,7 +84,7 @@ started (pid=…)` and `panel-review: <name> done (exit N)`) and streams each
    - **Action list** — must-fix → should-fix → optional polish.
    - **Disagreements** — if panelists contradict each other, surface that explicitly
      rather than picking a side.
-8. **Don't paraphrase or invent.** Surface what the panelists actually said. If a
+9. **Don't paraphrase or invent.** Surface what the panelists actually said. If a
    panelist returned `NO_FINDINGS`, note it; don't drop the panelist from the report.
 
 ## Usage
