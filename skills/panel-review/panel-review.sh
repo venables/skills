@@ -18,8 +18,6 @@ OUT_DIR=""
 TIMEOUT_SECS="${PANEL_REVIEW_TIMEOUT:-600}"
 MAX_DIFF_BYTES="${PANEL_REVIEW_MAX_DIFF_BYTES:-200000}"
 CHECKOUT_MODE=0
-WORKTREE_DIR=""
-PANEL_CWD="$PWD"
 
 # ----- Per-panelist model overrides (env) -----
 CODEX_MODEL="${CODEX_MODEL:-}"
@@ -166,42 +164,58 @@ esac
 
 [[ -s "$DIFF_FILE" ]] || die "diff is empty for target: $TARGET"
 
-# ----- Optional: materialize a worktree for deep-mode panelists -----
+# ----- Optional: materialize one worktree per panelist for deep-mode -----
 #
-# Why: in default (read-only) mode, panelists see only a free-floating diff string
-# from the user's CWD — fine for surface review, but they can't grep callers in the
-# PR's actual file tree, and the read-only sandbox blocks `cargo test` / `pnpm test`
-# anyway. --checkout flips both: a dedicated worktree of the target ref + write/exec
-# panelist flags, so reviewers can investigate downstream effects and run the test
-# suite. Cleanup runs on EXIT to avoid leaking worktrees if the script is killed.
+# Why one worktree per panelist (CI matrix style): in --checkout mode, panelists
+# run real test suites and may edit files as part of investigation. Sharing one
+# worktree across N parallel panelists invites:
+#   - test runners racing on lockfiles / build dirs (target/, node_modules/.cache,
+#     .next/, dist/) — flaky failures unrelated to the diff
+#   - one panelist's edits leaking into another's review state, breaking the
+#     "independent observers" guarantee the skill is built around
+#   - one panelist's `pnpm install` corrupting another's run if it dies mid-write
+# Disk cost is N × repo, but pnpm/cargo/npm caches are shared at the user level so
+# most of the bytes are hardlinks. Cleanup loops in the EXIT trap so nothing leaks
+# if the script is killed.
+declare -a WORKTREES=()
 if (( CHECKOUT_MODE )); then
-  WORKTREE_DIR="$OUT_DIR/worktree"
-  echo "panel-review: --checkout: materializing worktree at $WORKTREE_DIR" >&2
+  echo "panel-review: --checkout: materializing one worktree per panelist under $OUT_DIR" >&2
+
+  # Resolve a single commit SHA every worktree will pin to. One fetch (for --pr),
+  # then N cheap local checkouts — avoids gh-pr-checkout's branch-naming conflict
+  # when worktree #2 tries to claim the same local branch as worktree #1.
+  WORKTREE_REF=""
   case "$TARGET" in
     pr:*)
-      pr_ref="${TARGET#pr:}"
-      git worktree add --detach "$WORKTREE_DIR" HEAD >&2 \
-        || die "git worktree add failed"
-      # gh pr checkout creates/updates a local branch tracking the PR head and
-      # switches to it. -f resets the branch if it already exists from a prior run.
-      ( cd "$WORKTREE_DIR" && gh pr checkout "$pr_ref" -f >&2 ) \
-        || die "gh pr checkout $pr_ref failed inside worktree"
+      [[ -n "${pr_num:-}" ]] || die "--pr --checkout: could not resolve PR number"
+      git fetch origin "pull/${pr_num}/head" >&2 \
+        || die "git fetch pull/${pr_num}/head failed"
+      WORKTREE_REF="$(git rev-parse FETCH_HEAD)"
       ;;
     base:*)
-      # For --base, panelists need to inspect the *current* branch's tip (the diff
-      # is BASE...HEAD), so we materialize HEAD into a clean worktree.
-      git worktree add --detach "$WORKTREE_DIR" HEAD >&2 \
-        || die "git worktree add HEAD failed"
+      WORKTREE_REF="$(git rev-parse HEAD)"
       ;;
     commit:*)
-      sha="${TARGET#commit:}"
-      git worktree add --detach "$WORKTREE_DIR" "$sha" >&2 \
-        || die "git worktree add $sha failed"
+      WORKTREE_REF="${TARGET#commit:}"
       ;;
   esac
-  PANEL_CWD="$WORKTREE_DIR"
-  trap 'git worktree remove --force "$WORKTREE_DIR" >/dev/null 2>&1 || true' EXIT
-  echo "panel-review: --checkout: panelists will run with WRITE/EXEC permissions in $WORKTREE_DIR" >&2
+
+  for p in "${PANELISTS[@]}"; do
+    wt="$OUT_DIR/worktree-$p"
+    git worktree add --detach "$wt" "$WORKTREE_REF" >&2 \
+      || die "git worktree add $wt $WORKTREE_REF failed"
+    WORKTREES+=("$wt")
+  done
+
+  # Trap evaluates PANELISTS at signal time (not now), which is what we want — if
+  # PANELISTS were mutated later we'd still clean up exactly the dirs we created.
+  trap '
+    for _wt in "${WORKTREES[@]:-}"; do
+      [[ -n "$_wt" ]] && git worktree remove --force "$_wt" >/dev/null 2>&1 || true
+    done
+  ' EXIT
+
+  echo "panel-review: --checkout: ${#WORKTREES[@]} worktrees ready, panelists will run with WRITE/EXEC permissions in their own isolated checkouts" >&2
 fi
 
 DIFF_BYTES=$(wc -c < "$DIFF_FILE" | tr -d ' ')
@@ -358,9 +372,11 @@ for p in "${PANELISTS[@]}"; do
     continue
   fi
 
-  ( cd "$PANEL_CWD" && run_panelist "${argv[@]}" >"$out" 2>"$err"; echo $? >"$rc" ) &
+  panel_cwd="$PWD"
+  (( CHECKOUT_MODE )) && panel_cwd="$OUT_DIR/worktree-$p"
+  ( cd "$panel_cwd" && run_panelist "${argv[@]}" >"$out" 2>"$err"; echo $? >"$rc" ) &
   PIDS+=($!)
-  echo "panel-review: ${p} started (pid=$!, cwd=$PANEL_CWD)" >&2
+  echo "panel-review: ${p} started (pid=$!, cwd=$panel_cwd)" >&2
 done
 
 # ----- Stream combined results as each panelist finishes -----
