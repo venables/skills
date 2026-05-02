@@ -14,7 +14,7 @@ description: >
 # panel-review
 
 Spawns multiple local CLI coding agents in parallel to review the same code change, then
-amalgamates their findings into one report. Each panelist runs in its own subprocess with
+synthesizes their findings into one report. Each panelist runs in its own subprocess with
 no shared conversation state — they only see the prompt and the diff.
 
 ## When to use
@@ -60,7 +60,7 @@ started (pid=…)` and `panel-review: <name> done (exit N)`) and streams each
    timeout will kill the call before Codex returns.
 6. **Set up live progress UX.** Right before (or right after) launching the script:
    - Call `TodoWrite` with one todo per chosen panelist (`Review: codex`,
-     `Review: claude`, …) plus a final `Amalgamate findings` todo. Initial
+     `Review: claude`, …) plus a final `Synthesize findings` todo. Initial
      statuses: the first panelist's `in_progress`, the rest `pending`. (Some
      harnesses expose this as `TaskCreate` / `TaskUpdate` instead — use whichever
      todo-list tool your environment provides.)
@@ -72,14 +72,14 @@ started (pid=…)` and `panel-review: <name> done (exit N)`) and streams each
 NO_FINDINGS` / `✗ <name> failed (exit N)`). One line per finish. Do not paste
      full panelist sections into chat as they arrive — that's noise; synthesis is
      step 8.
-   - After the last `done` heartbeat, set `Amalgamate findings` to `in_progress`,
+   - After the last `done` heartbeat, set `Synthesize findings` to `in_progress`,
      proceed to steps 7–8, then mark it `completed`.
 7. **Read the script's combined output** — it prints one section per panelist with their
    raw findings, plus a tempdir path containing each panelist's stdout/stderr. Wait for
-   _all_ panelists to finish before amalgamating; partial output is fine to _show_ the
+   _all_ panelists to finish before synthesizing; partial output is fine to _show_ the
    user during the wait, but consensus / disagreement analysis needs every panelist's
    verdict.
-8. **Amalgamate the findings** in your reply to the user:
+8. **Synthesize the findings** in your reply to the user:
    - **Consensus** — issues raised by 2+ panelists, deduplicated. List file:line + the
      core problem and a suggested fix.
    - **Unique findings** — per panelist, only the findings no one else mentioned that
@@ -201,6 +201,6 @@ Other knobs:
   worktree, even though the worktree itself is throwaway. The deep-mode prompt
   explicitly forbids this; treat the prompt as a firewall, not a sandbox.
 - If a panelist times out or errors, the script keeps the others' output and exits 2.
-  Surface the failure in your amalgamated report rather than silently dropping it.
+  Surface the failure in your synthesized report rather than silently dropping it.
 - The combined output references a tempdir like `/tmp/panel-review-XXXXXX/` — re-read
   any panelist's raw output from there if you need more detail than the inline excerpt.

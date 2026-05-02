@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # panel-review.sh — fan a code review out to multiple local CLI agents in parallel
-#                   and print their raw outputs for the coordinator to amalgamate.
+#                   and print their raw outputs for the coordinator to synthesize.
 #
 # Each panelist runs in its own non-interactive subprocess with no shared state.
 # Captured outputs land in a tempdir; the path is printed at the end.
