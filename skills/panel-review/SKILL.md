@@ -2,13 +2,16 @@
 name: panel-review
 description: >
   Run a parallel code review across multiple local CLI coding agents (codex, claude,
-  opencode, gemini) and aggregate their findings. Use when the user asks for a "panel
-  review", "panel-review", "/panel-review", "second opinions on this change",
-  "multi-agent review", "get a panel of agents to review this", or similar phrasings
-  asking for independent reviews from outside this conversation. Each panelist runs in
-  a fresh non-interactive subprocess with no shared state — that is the point. Do NOT
-  use when the user just wants the current Claude session to review code itself; use
-  the regular code-reviewer agent for that.
+  opencode, gemini) and synthesize their findings. Use this skill whenever the user
+  asks for a "panel review" / "panel-review", "second opinions on this change",
+  "multi-agent review", "ensemble review", a "deep panel review" / "really dig into
+  this PR" / "run the tests on this PR" (the deep mode that runs tests and greps
+  callers in a real worktree checkout), asks to "have multiple agents/LLMs review
+  this", "cross-check this with codex/claude/etc", "fan out a code review", or any
+  similar phrasing asking for independent reviews from outside this conversation.
+  Each panelist runs in a fresh non-interactive subprocess with no shared state —
+  that is the point. Do NOT use when the user just wants the current session to
+  review code itself; use the regular code-reviewer agent for that.
 ---
 
 # panel-review
