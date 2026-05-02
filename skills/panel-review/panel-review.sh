@@ -232,10 +232,15 @@ if (( CHECKOUT_MODE )); then
   # the failure would leak into .git/worktrees. The trap body iterates WORKTREES,
   # which is single-quoted and re-expanded at signal time, so it cleans up exactly
   # the dirs we managed to add (zero or more).
+  # `${WORKTREES[@]:-}` would expand to a single empty element on bash 3.2 (the
+  # macOS default) and produce a confusing error under `set -u`. Guard the loop
+  # with a count check so the trap is a no-op when nothing has been added yet.
   trap '
-    for _wt in "${WORKTREES[@]:-}"; do
-      [[ -n "$_wt" ]] && git worktree remove --force "$_wt" >/dev/null 2>&1 || true
-    done
+    if (( ${#WORKTREES[@]} > 0 )); then
+      for _wt in "${WORKTREES[@]}"; do
+        [[ -n "$_wt" ]] && git worktree remove --force "$_wt" >/dev/null 2>&1 || true
+      done
+    fi
   ' EXIT
 
   for p in "${PANELISTS[@]}"; do
