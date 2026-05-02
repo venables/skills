@@ -210,20 +210,24 @@ if (( CHECKOUT_MODE )); then
       ;;
   esac
 
+  # Register cleanup BEFORE the creation loop. If `git worktree add` fails partway
+  # through (disk full, ref doesn't exist after a fetch race, etc.), die() exits
+  # immediately — without the trap already in place, any worktrees added before
+  # the failure would leak into .git/worktrees. The trap body iterates WORKTREES,
+  # which is single-quoted and re-expanded at signal time, so it cleans up exactly
+  # the dirs we managed to add (zero or more).
+  trap '
+    for _wt in "${WORKTREES[@]:-}"; do
+      [[ -n "$_wt" ]] && git worktree remove --force "$_wt" >/dev/null 2>&1 || true
+    done
+  ' EXIT
+
   for p in "${PANELISTS[@]}"; do
     wt="$OUT_DIR/worktree-$p"
     git worktree add --detach "$wt" "$WORKTREE_REF" >&2 \
       || die "git worktree add $wt $WORKTREE_REF failed"
     WORKTREES+=("$wt")
   done
-
-  # Trap evaluates PANELISTS at signal time (not now), which is what we want — if
-  # PANELISTS were mutated later we'd still clean up exactly the dirs we created.
-  trap '
-    for _wt in "${WORKTREES[@]:-}"; do
-      [[ -n "$_wt" ]] && git worktree remove --force "$_wt" >/dev/null 2>&1 || true
-    done
-  ' EXIT
 
   echo "panel-review: --checkout: ${#WORKTREES[@]} worktrees ready, panelists will run with WRITE/EXEC permissions in their own isolated checkouts" >&2
 fi
