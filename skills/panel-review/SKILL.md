@@ -59,17 +59,20 @@ started (pid=…)` and `panel-review: <name> done (exit N)`) and streams each
    the foreground, pass `timeout: 600000` (10 min) since the default 2-minute Bash
    timeout will kill the call before Codex returns.
 6. **Set up live progress UX.** Right before (or right after) launching the script:
-   - Call `TaskCreate` with one task per chosen panelist (`Review: codex`,
-     `Review: claude`, …) plus a final `Amalgamate findings` task. Mark each
-     panelist's task `in_progress` once the script's `started` heartbeat for that
-     panelist arrives.
-   - Each `BashOutput` poll: scan stderr for `panel-review: <name> done (exit N)`.
-     When you see one, mark that panelist's task `completed` (or note the failure)
-     **and** post a single-line user-visible status: `✓ <name> done in <Ts> — N
-findings, top severity <SEV>` (or `✓ <name> — NO_FINDINGS` / `✗ <name> failed
-(exit N)`). One line per finish. Do not paste full panelist sections into chat
-     as they arrive — that's noise; synthesis is step 8.
-   - After the last `done` heartbeat, mark `Amalgamate findings` `in_progress`,
+   - Call `TodoWrite` with one todo per chosen panelist (`Review: codex`,
+     `Review: claude`, …) plus a final `Amalgamate findings` todo. Initial
+     statuses: the first panelist's `in_progress`, the rest `pending`. (Some
+     harnesses expose this as `TaskCreate` / `TaskUpdate` instead — use whichever
+     todo-list tool your environment provides.)
+   - Each `BashOutput` poll: scan stderr for `panel-review: <name> started`
+     and `panel-review: <name> done (exit N)`. On a `started`, set that
+     panelist's todo to `in_progress` (re-call `TodoWrite` with the updated list).
+     On a `done`, set it to `completed` and post a single-line user-visible
+     status: `✓ <name> done — N findings, top severity <SEV>` (or `✓ <name> —
+NO_FINDINGS` / `✗ <name> failed (exit N)`). One line per finish. Do not paste
+     full panelist sections into chat as they arrive — that's noise; synthesis is
+     step 8.
+   - After the last `done` heartbeat, set `Amalgamate findings` to `in_progress`,
      proceed to steps 7–8, then mark it `completed`.
 7. **Read the script's combined output** — it prints one section per panelist with their
    raw findings, plus a tempdir path containing each panelist's stdout/stderr. Wait for
