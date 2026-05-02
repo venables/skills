@@ -204,12 +204,20 @@ if (( CHECKOUT_MODE )); then
       # clone but reviewing an upstream PR). Using gh pr view "$pr_ref" keeps
       # repo context end-to-end. Single call returns three lines via jq's
       # comma operator; bash-3.2-compatible read; read; read consumes them.
+      # Capture gh's stderr to a file rather than swallowing it — auth errors,
+      # network blips, and missing-headRepository (deleted-fork PRs) all need
+      # to surface in the die message instead of collapsing to a generic
+      # "failed to resolve" line.
+      gh_err="$OUT_DIR/gh-pr-view.err"
       { read -r pr_url; read -r pr_head_sha; read -r pr_head_nwo; } < <(
         gh pr view "$pr_ref" --json url,headRefOid,headRepository \
-                  -q '.url, .headRefOid, .headRepository.nameWithOwner' 2>/dev/null || true
+                  -q '.url, .headRefOid, .headRepository.nameWithOwner' 2>"$gh_err" || true
       )
-      [[ -n "$pr_url" && -n "$pr_head_sha" && -n "$pr_head_nwo" ]] \
-        || die "--pr --checkout: failed to resolve PR url/SHA/head-repo via gh pr view"
+      if [[ -z "$pr_url" || -z "$pr_head_sha" || -z "$pr_head_nwo" ]]; then
+        msg="--pr --checkout: failed to resolve PR url/SHA/head-repo via gh pr view"
+        [[ -s "$gh_err" ]] && msg+=$'\n  gh stderr: '"$(cat "$gh_err")"
+        die "$msg"
+      fi
       # Extract the host from the PR's own URL (not hardcoded to github.com)
       # so this works against GitHub Enterprise too.
       pr_host="$(echo "$pr_url" | sed -E 's|^(https?://[^/]+)/.*|\1|')"
