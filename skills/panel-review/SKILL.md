@@ -51,16 +51,44 @@ When _not_ to use:
    and it gives panelists write/exec access in a throwaway worktree — strictly less
    safe than the default. Surface that tradeoff briefly to the user before opting
    in if they didn't ask for it explicitly.
-5. **Run the script** (path: `skills/panel-review/panel-review.sh`). Prefer running it
-   as a **background Bash** (`run_in_background: true`) and poll progress with
-   `BashOutput`. Reason: panelists run in parallel, but Codex is slow and dominates
-   wall clock — without backgrounding, the foreground Bash call blocks silently for
-   minutes. The script emits unbuffered stderr heartbeats (`panel-review: <name>
-started (pid=…)` and `panel-review: <name> done (exit N)`) and streams each
-   panelist's section to stdout the moment that panelist finishes, so polling
-   `BashOutput` every 10–15 seconds yields real-time visibility. If you do run it in
-   the foreground, pass `timeout: 600000` (10 min) since the default 2-minute Bash
-   timeout will kill the call before Codex returns.
+5. **Run the script** (path: `skills/panel-review/panel-review.sh`). You **MUST**
+   launch it as a **background Bash** (`Bash` tool with `run_in_background: true`)
+   and poll progress with `BashOutput` on the returned `bash_id` every **10
+   seconds** until every panelist has emitted its `done (exit N)` heartbeat.
+
+   This skill explicitly **overrides** the default harness guidance that says
+   "do not poll background tasks — you'll be notified when they complete."
+   That guidance is wrong for this workflow: the heartbeats and per-section
+   streaming exist precisely so the coordinator can give the user live
+   progress, and waiting for the single completion notification defeats that.
+   Poll every 10 seconds. Do not back off to 30s/60s/90s — those long sleeps
+   are the symptom of obeying the wrong guidance.
+
+   **Do NOT launch the script via the `Agent` tool / `TaskCreate` / any
+   subagent mechanism.** Subagents run in a separate Claude context and there
+   is no streaming-output API for in-flight subagents — the only thing the
+   parent sees is the subagent's final response when it terminates. The
+   script's stderr heartbeats become invisible, the per-section streaming is
+   useless, and progress polling silently degrades into hacks like
+   `sleep 90 && grep panel-review: tasks/<id>.output | tail` against the
+   subagent's transcript file. If you catch yourself reaching for the `Agent`
+   tool here, stop and use background `Bash` instead.
+
+   **Do NOT poll by shelling out to `sleep N && grep` against any output
+   file.** `BashOutput` is the only correct progress-polling mechanism for
+   this script — it returns new stdout/stderr since the last call, including
+   the stderr heartbeats, with no parsing required.
+
+   Reason all of this matters: panelists run in parallel, but Codex is slow
+   and dominates wall clock. Without backgrounded Bash + `BashOutput`, the
+   call blocks silently for minutes and the user sees nothing.
+
+   If you absolutely cannot use `run_in_background` (rare — usually only when
+   the harness lacks `BashOutput`), run it in the foreground and pass
+   `timeout: 600000` (10 min) since the default 2-minute Bash timeout will
+   kill the call before Codex returns. You will lose live progress in this
+   mode; warn the user.
+
 6. **Set up live progress UX.** Right before (or right after) launching the script:
    - Call `TodoWrite` with one todo per chosen panelist (`Review: codex`,
      `Review: claude`, …) plus a final `Synthesize findings` todo. Initial
