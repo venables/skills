@@ -83,7 +83,17 @@ while [[ $# -gt 0 ]]; do
     --commit)      [[ $# -ge 2 ]] || die "--commit needs a SHA"; TARGET="commit:$2"; shift 2 ;;
     --pr)          [[ $# -ge 2 ]] || die "--pr needs a number or URL"; TARGET="pr:$2"; shift 2 ;;
     --focus)       [[ $# -ge 2 ]] || die "--focus needs text"; FOCUS="$2"; shift 2 ;;
-    --panelist)    [[ $# -ge 2 ]] || die "--panelist needs a name"; PANELISTS+=("$2"); shift 2 ;;
+    --panelist)
+      [[ $# -ge 2 ]] || die "--panelist needs a name"
+      # Validate against the known set up-front. The panelist name is later
+      # interpolated into filesystem paths (worktree-$p, $p.out, $p.rc) and
+      # passed to git worktree add — an unsanitized name like '../foo' would
+      # escape $OUT_DIR and leave a stale entry in .git/worktrees.
+      case "$2" in
+        codex|claude|opencode|gemini) PANELISTS+=("$2") ;;
+        *) die "--panelist: unknown panelist '$2' (allowed: codex, claude, opencode, gemini)" ;;
+      esac
+      shift 2 ;;
     --out-dir)     [[ $# -ge 2 ]] || die "--out-dir needs a path"; OUT_DIR="$2"; shift 2 ;;
     --timeout)     [[ $# -ge 2 ]] || die "--timeout needs seconds"; TIMEOUT_SECS="$2"; shift 2 ;;
     --checkout)    CHECKOUT_MODE=1; shift ;;
