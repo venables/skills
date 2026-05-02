@@ -198,21 +198,22 @@ if (( CHECKOUT_MODE )); then
   case "$TARGET" in
     pr:*)
       [[ -n "${pr_num:-}" ]] || die "--pr --checkout: could not resolve PR number"
-      # Don't assume the PR's source repo is reachable as `origin`. In a fork
-      # setup the canonical repo is usually `upstream`; the PR itself may live
-      # in a third-party fork. Resolve the head repo's clone URL + head SHA
-      # via the GitHub API (handles forks and GitHub Enterprise uniformly),
-      # then fetch directly from that URL. Auth flows through git's credential
-      # helpers — for HTTPS that means the helper `gh auth setup-git` installs.
-      gh_repo_nwo="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
-      [[ -n "$gh_repo_nwo" ]] \
-        || die "--pr --checkout: gh repo view failed (is this a github repo?)"
-      { read -r pr_head_url; read -r pr_head_sha; } < <(
-        gh api "repos/${gh_repo_nwo}/pulls/${pr_num}" \
-               --jq '.head.repo.clone_url, .head.sha' 2>/dev/null || true
+      # Resolve everything from pr_ref directly. A bare `gh repo view` would
+      # return the cwd's default repo, which can disagree with pr_ref when
+      # pr_ref is a URL pointing at a different repo (e.g. running from a fork
+      # clone but reviewing an upstream PR). Using gh pr view "$pr_ref" keeps
+      # repo context end-to-end. Single call returns three lines via jq's
+      # comma operator; bash-3.2-compatible read; read; read consumes them.
+      { read -r pr_url; read -r pr_head_sha; read -r pr_head_nwo; } < <(
+        gh pr view "$pr_ref" --json url,headRefOid,headRepository \
+                  -q '.url, .headRefOid, .headRepository.nameWithOwner' 2>/dev/null || true
       )
-      [[ -n "$pr_head_url" && -n "$pr_head_sha" ]] \
-        || die "--pr --checkout: failed to resolve head clone_url + sha via gh api"
+      [[ -n "$pr_url" && -n "$pr_head_sha" && -n "$pr_head_nwo" ]] \
+        || die "--pr --checkout: failed to resolve PR url/SHA/head-repo via gh pr view"
+      # Extract the host from the PR's own URL (not hardcoded to github.com)
+      # so this works against GitHub Enterprise too.
+      pr_host="$(echo "$pr_url" | sed -E 's|^(https?://[^/]+)/.*|\1|')"
+      pr_head_url="${pr_host}/${pr_head_nwo}.git"
       git fetch "$pr_head_url" "$pr_head_sha" >&2 \
         || die "git fetch $pr_head_url $pr_head_sha failed"
       WORKTREE_REF="$pr_head_sha"
