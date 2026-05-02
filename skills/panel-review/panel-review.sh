@@ -8,6 +8,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROMPT_TEMPLATE="$SCRIPT_DIR/prompts/review.md"
+PROMPT_TEMPLATE_DEEP="$SCRIPT_DIR/prompts/review-deep.md"
 
 # ----- Defaults -----
 TARGET="uncommitted"           # uncommitted | staged | base:<ref> | commit:<sha>
@@ -16,12 +17,20 @@ PANELISTS=()
 OUT_DIR=""
 TIMEOUT_SECS="${PANEL_REVIEW_TIMEOUT:-600}"
 MAX_DIFF_BYTES="${PANEL_REVIEW_MAX_DIFF_BYTES:-200000}"
+CHECKOUT_MODE=0
+WORKTREE_DIR=""
+PANEL_CWD="$PWD"
 
 # ----- Per-panelist model overrides (env) -----
 CODEX_MODEL="${CODEX_MODEL:-}"
 CLAUDE_MODEL="${CLAUDE_MODEL:-}"
 OPENCODE_MODEL="${OPENCODE_MODEL:-}"
 OPENCODE_AGENT="${OPENCODE_AGENT:-plan}"
+# Opencode has no read-only/write toggle equivalent to codex's --sandbox; the choice
+# of agent decides what tools are available. In --checkout mode we swap to a writable
+# agent so panelists can edit and exec; override with OPENCODE_AGENT_DEEP if you have
+# a custom agent for this purpose.
+OPENCODE_AGENT_DEEP="${OPENCODE_AGENT_DEEP:-build}"
 GEMINI_MODEL="${GEMINI_MODEL:-}"
 
 usage() {
@@ -41,6 +50,13 @@ Options:
                           If not given, auto-detects every supported CLI on PATH.
   --out-dir DIR           Where to write captured outputs (default: mktemp).
   --timeout SECS          Per-panelist timeout (default: \$PANEL_REVIEW_TIMEOUT or 600).
+  --checkout              DEEP MODE: git-worktree-checkout the target ref into a
+                          tempdir and run panelists from inside it with WRITE/EXEC
+                          permissions so they can grep callers, run tests, and
+                          investigate downstream effects. Required for --pr/--base/
+                          --commit only; incompatible with --uncommitted/--staged.
+                          Strictly less safe than the default read-only fan-out:
+                          panelists can run arbitrary commands (network, fs, CPU).
   -h, --help              Show this help.
 
 Environment:
@@ -72,12 +88,25 @@ while [[ $# -gt 0 ]]; do
     --panelist)    [[ $# -ge 2 ]] || die "--panelist needs a name"; PANELISTS+=("$2"); shift 2 ;;
     --out-dir)     [[ $# -ge 2 ]] || die "--out-dir needs a path"; OUT_DIR="$2"; shift 2 ;;
     --timeout)     [[ $# -ge 2 ]] || die "--timeout needs seconds"; TIMEOUT_SECS="$2"; shift 2 ;;
+    --checkout)    CHECKOUT_MODE=1; shift ;;
     -h|--help)     usage; exit 0 ;;
     *) die "unknown argument: $1 (use -h for help)" ;;
   esac
 done
 
 [[ -f "$PROMPT_TEMPLATE" ]] || die "missing prompt template at $PROMPT_TEMPLATE"
+
+# --checkout requires a target with a real ref to materialize. uncommitted/staged
+# already live in the user's working tree; the whole point of --checkout is to
+# isolate panelists in a dedicated worktree of a *different* ref.
+if (( CHECKOUT_MODE )); then
+  [[ -f "$PROMPT_TEMPLATE_DEEP" ]] || die "missing deep prompt template at $PROMPT_TEMPLATE_DEEP"
+  case "$TARGET" in
+    pr:*|base:*|commit:*) ;;
+    *) die "--checkout requires --pr, --base, or --commit (incompatible with --uncommitted/--staged)" ;;
+  esac
+  command -v git >/dev/null 2>&1 || die "--checkout requires git on PATH"
+fi
 
 # ----- Auto-detect panelists if none specified -----
 if [[ ${#PANELISTS[@]} -eq 0 ]]; then
@@ -137,6 +166,44 @@ esac
 
 [[ -s "$DIFF_FILE" ]] || die "diff is empty for target: $TARGET"
 
+# ----- Optional: materialize a worktree for deep-mode panelists -----
+#
+# Why: in default (read-only) mode, panelists see only a free-floating diff string
+# from the user's CWD — fine for surface review, but they can't grep callers in the
+# PR's actual file tree, and the read-only sandbox blocks `cargo test` / `pnpm test`
+# anyway. --checkout flips both: a dedicated worktree of the target ref + write/exec
+# panelist flags, so reviewers can investigate downstream effects and run the test
+# suite. Cleanup runs on EXIT to avoid leaking worktrees if the script is killed.
+if (( CHECKOUT_MODE )); then
+  WORKTREE_DIR="$OUT_DIR/worktree"
+  echo "panel-review: --checkout: materializing worktree at $WORKTREE_DIR" >&2
+  case "$TARGET" in
+    pr:*)
+      pr_ref="${TARGET#pr:}"
+      git worktree add --detach "$WORKTREE_DIR" HEAD >&2 \
+        || die "git worktree add failed"
+      # gh pr checkout creates/updates a local branch tracking the PR head and
+      # switches to it. -f resets the branch if it already exists from a prior run.
+      ( cd "$WORKTREE_DIR" && gh pr checkout "$pr_ref" -f >&2 ) \
+        || die "gh pr checkout $pr_ref failed inside worktree"
+      ;;
+    base:*)
+      # For --base, panelists need to inspect the *current* branch's tip (the diff
+      # is BASE...HEAD), so we materialize HEAD into a clean worktree.
+      git worktree add --detach "$WORKTREE_DIR" HEAD >&2 \
+        || die "git worktree add HEAD failed"
+      ;;
+    commit:*)
+      sha="${TARGET#commit:}"
+      git worktree add --detach "$WORKTREE_DIR" "$sha" >&2 \
+        || die "git worktree add $sha failed"
+      ;;
+  esac
+  PANEL_CWD="$WORKTREE_DIR"
+  trap 'git worktree remove --force "$WORKTREE_DIR" >/dev/null 2>&1 || true' EXIT
+  echo "panel-review: --checkout: panelists will run with WRITE/EXEC permissions in $WORKTREE_DIR" >&2
+fi
+
 DIFF_BYTES=$(wc -c < "$DIFF_FILE" | tr -d ' ')
 if (( DIFF_BYTES > MAX_DIFF_BYTES )); then
   die "diff is $DIFF_BYTES bytes, exceeds cap $MAX_DIFF_BYTES.
@@ -147,13 +214,27 @@ if (( DIFF_BYTES > MAX_DIFF_BYTES )); then
 fi
 
 # ----- Compose the per-run prompt -----
+ACTIVE_TEMPLATE="$PROMPT_TEMPLATE"
+(( CHECKOUT_MODE )) && ACTIVE_TEMPLATE="$PROMPT_TEMPLATE_DEEP"
 PROMPT_FILE="$OUT_DIR/prompt.md"
 {
-  cat "$PROMPT_TEMPLATE"
+  cat "$ACTIVE_TEMPLATE"
   echo
   echo "## Review target"
   echo
   echo "$TARGET_LABEL"
+  if (( CHECKOUT_MODE )); then
+    echo
+    echo "## Workspace"
+    echo
+    echo "You are running inside a dedicated git worktree at the path of your current working"
+    echo "directory. This is the actual checkout of the target ref — not a free-floating diff."
+    echo "You may read any file, grep across the tree, and execute build / test / lint commands"
+    echo "to investigate downstream effects of the changes. Do not push, force-push, or perform"
+    echo "any network write that affects shared infrastructure (GitHub, Slack, Linear, package"
+    echo "registries, etc.). Local edits to the worktree are fine — the whole worktree is"
+    echo "thrown away when this run exits."
+  fi
   if [[ -n "$PR_BODY" ]]; then
     echo
     echo "## PR description"
@@ -196,28 +277,51 @@ run_panelist() {
 }
 
 # ----- Build each panelist's argv -----
+#
+# Default mode: lock each panelist down so the worst case is a panelist that read
+# more files than it needed to. Deep mode (CHECKOUT_MODE=1): panelists need to run
+# tests and edit files in the throwaway worktree, so each CLI's permission flag is
+# swapped for its most permissive non-interactive equivalent. Network/destructive
+# actions are gated by the prompt's hard constraints (see prompts/review-deep.md),
+# not by sandbox flags — there's no portable "no-network-write" mode across all four
+# CLIs.
 build_argv() {
   local name="$1"
   case "$name" in
     codex)
-      argv=(codex exec --skip-git-repo-check --sandbox read-only --color=never)
+      if (( CHECKOUT_MODE )); then
+        argv=(codex exec --skip-git-repo-check --sandbox workspace-write --color=never)
+      else
+        argv=(codex exec --skip-git-repo-check --sandbox read-only --color=never)
+      fi
       [[ -n "$CODEX_MODEL" ]] && argv+=(-m "$CODEX_MODEL")
       argv+=(-- "$PROMPT_CONTENT")
       ;;
     claude)
-      argv=(claude -p --permission-mode plan --output-format text --no-session-persistence)
+      if (( CHECKOUT_MODE )); then
+        argv=(claude -p --permission-mode bypassPermissions --output-format text --no-session-persistence)
+      else
+        argv=(claude -p --permission-mode plan --output-format text --no-session-persistence)
+      fi
       [[ -n "$CLAUDE_MODEL" ]] && argv+=(--model "$CLAUDE_MODEL")
       argv+=(-- "$PROMPT_CONTENT")
       ;;
     opencode)
       # `opencode run` takes the message positionally; --prompt is not a flag here
       # and would make opencode dump its --help and exit 1.
-      argv=(opencode run --agent "$OPENCODE_AGENT")
+      local agent="$OPENCODE_AGENT"
+      (( CHECKOUT_MODE )) && agent="$OPENCODE_AGENT_DEEP"
+      argv=(opencode run --agent "$agent")
+      (( CHECKOUT_MODE )) && argv+=(--dangerously-skip-permissions)
       [[ -n "$OPENCODE_MODEL" ]] && argv+=(--model "$OPENCODE_MODEL")
       argv+=(-- "$PROMPT_CONTENT")
       ;;
     gemini)
-      argv=(gemini --approval-mode plan)
+      if (( CHECKOUT_MODE )); then
+        argv=(gemini --approval-mode yolo)
+      else
+        argv=(gemini --approval-mode plan)
+      fi
       [[ -n "$GEMINI_MODEL" ]] && argv+=(--model "$GEMINI_MODEL")
       argv+=(-p "$PROMPT_CONTENT")
       ;;
@@ -254,9 +358,9 @@ for p in "${PANELISTS[@]}"; do
     continue
   fi
 
-  ( run_panelist "${argv[@]}" >"$out" 2>"$err"; echo $? >"$rc" ) &
+  ( cd "$PANEL_CWD" && run_panelist "${argv[@]}" >"$out" 2>"$err"; echo $? >"$rc" ) &
   PIDS+=($!)
-  echo "panel-review: ${p} started (pid=$!)" >&2
+  echo "panel-review: ${p} started (pid=$!, cwd=$PANEL_CWD)" >&2
 done
 
 # ----- Stream combined results as each panelist finishes -----
