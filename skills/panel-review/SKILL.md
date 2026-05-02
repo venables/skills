@@ -170,18 +170,26 @@ Other knobs:
 
 ### Deep mode (`--checkout`)
 
-- `git worktree add --detach $OUT_DIR/worktree <ref>` materializes the target ref in
-  isolation. For `--pr N`, follows up with `gh pr checkout N -f` inside the worktree;
-  for `--base BRANCH`, materializes `HEAD`; for `--commit SHA`, materializes the SHA.
-- Each panelist's CWD is the worktree. Per-panelist permission flags swap to their
-  most permissive non-interactive equivalents:
+- Resolves a single commit SHA the worktrees will all pin to:
+  - `--pr N` (or URL) — `gh pr view "$pr_ref"` returns the PR's URL, head SHA,
+    and head `nameWithOwner`. Constructs the head clone URL using the PR URL's
+    own host (so GitHub Enterprise works), then `git fetch` once from that URL
+    by SHA. One network round-trip; subsequent worktrees are local-only.
+  - `--base BRANCH` — `git rev-parse HEAD`.
+  - `--commit SHA` — uses the SHA directly.
+- Materializes one detached worktree per panelist at `$OUT_DIR/worktree-<name>`.
+  Each worktree is independent — test runners can write to their own
+  `node_modules/`, `target/`, `.next/` without racing siblings (CI-matrix style).
+- Each panelist's CWD is its own worktree. Per-panelist permission flags swap to
+  their most permissive non-interactive equivalents:
   - codex: `--sandbox workspace-write`
   - claude: `--permission-mode bypassPermissions`
   - opencode: `--agent build --dangerously-skip-permissions`
   - gemini: `--approval-mode yolo`
-- A `trap … EXIT` runs `git worktree remove --force` on script exit (including
-  signals) so worktrees don't leak. The captured stdout/stderr/diff/prompt files in
-  the parent `OUT_DIR` are kept for postmortem.
+- A `trap … EXIT` registered _before_ the worktree-creation loop iterates
+  `WORKTREES` and runs `git worktree remove --force` on each. Cleans up however
+  many worktrees were added before any failure or signal. Captured
+  stdout/stderr/diff/prompt files in the parent `OUT_DIR` are kept for postmortem.
 - The deep-mode prompt explicitly forbids destructive network actions (push,
   PR/issue writes, package publishes) since the sandbox flags no longer enforce
   that. This is a softer guard than read-only mode — treat panelists as untrusted
