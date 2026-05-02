@@ -198,9 +198,24 @@ if (( CHECKOUT_MODE )); then
   case "$TARGET" in
     pr:*)
       [[ -n "${pr_num:-}" ]] || die "--pr --checkout: could not resolve PR number"
-      git fetch origin "pull/${pr_num}/head" >&2 \
-        || die "git fetch pull/${pr_num}/head failed"
-      WORKTREE_REF="$(git rev-parse FETCH_HEAD)"
+      # Don't assume the PR's source repo is reachable as `origin`. In a fork
+      # setup the canonical repo is usually `upstream`; the PR itself may live
+      # in a third-party fork. Resolve the head repo's clone URL + head SHA
+      # via the GitHub API (handles forks and GitHub Enterprise uniformly),
+      # then fetch directly from that URL. Auth flows through git's credential
+      # helpers — for HTTPS that means the helper `gh auth setup-git` installs.
+      gh_repo_nwo="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
+      [[ -n "$gh_repo_nwo" ]] \
+        || die "--pr --checkout: gh repo view failed (is this a github repo?)"
+      { read -r pr_head_url; read -r pr_head_sha; } < <(
+        gh api "repos/${gh_repo_nwo}/pulls/${pr_num}" \
+               --jq '.head.repo.clone_url, .head.sha' 2>/dev/null || true
+      )
+      [[ -n "$pr_head_url" && -n "$pr_head_sha" ]] \
+        || die "--pr --checkout: failed to resolve head clone_url + sha via gh api"
+      git fetch "$pr_head_url" "$pr_head_sha" >&2 \
+        || die "git fetch $pr_head_url $pr_head_sha failed"
+      WORKTREE_REF="$pr_head_sha"
       ;;
     base:*)
       WORKTREE_REF="$(git rev-parse HEAD)"
