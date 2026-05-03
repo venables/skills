@@ -98,11 +98,15 @@ When _not_ to use:
    - Each `BashOutput` poll: scan stderr for `panel-review: <name> started`
      and `panel-review: <name> done (exit N)`. On a `started`, set that
      panelist's todo to `in_progress` (re-call `TodoWrite` with the updated list).
-     On a `done`, set it to `completed` and post a single-line user-visible
-     status: `✓ <name> done — N findings, top severity <SEV>` (or `✓ <name> —
-NO_FINDINGS` / `✗ <name> failed (exit N)`). One line per finish. Do not paste
-     full panelist sections into chat as they arrive — that's noise; synthesis is
-     step 8.
+     On a `done`, set it to `completed`, post a single-line user-visible
+     status (`✓ <name> done — N findings, top severity <SEV>` or `✓ <name> —
+NO_FINDINGS` / `✗ <name> failed (exit N)`), **and immediately post that
+     panelist's full `## <name> (exit N)` section to chat as soon as it
+     appears in stdout**. Do not wait until every panelist is done — surfacing
+     each section the moment it lands gives the user actionable findings 5–10
+     minutes before synthesis is possible. The synthesis step still adds value
+     by deduping/ranking across panelists; it is not a substitute for the
+     individual sections.
    - After the last `done` heartbeat, set `Synthesize findings` to `in_progress`,
      proceed to steps 7–8, then mark it `completed`.
 7. **Read the script's combined output** — it prints one section per panelist with their
