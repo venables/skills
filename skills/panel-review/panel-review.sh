@@ -222,7 +222,7 @@ if (( CHECKOUT_MODE )); then
       # so this works against GitHub Enterprise too.
       pr_host="$(echo "$pr_url" | sed -E 's|^(https?://[^/]+)/.*|\1|')"
       pr_head_url="${pr_host}/${pr_head_nwo}.git"
-      git fetch "$pr_head_url" "$pr_head_sha" >&2 \
+      git fetch --quiet "$pr_head_url" "$pr_head_sha" >&2 \
         || die "git fetch $pr_head_url $pr_head_sha failed"
       WORKTREE_REF="$pr_head_sha"
       ;;
@@ -253,7 +253,7 @@ if (( CHECKOUT_MODE )); then
 
   for p in "${PANELISTS[@]}"; do
     wt="$OUT_DIR/worktree-$p"
-    git worktree add --detach "$wt" "$WORKTREE_REF" >&2 \
+    git worktree add --quiet --detach "$wt" "$WORKTREE_REF" >&2 \
       || die "git worktree add $wt $WORKTREE_REF failed"
     WORKTREES+=("$wt")
   done
