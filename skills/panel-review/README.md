@@ -2,6 +2,12 @@
 
 Fan a code review out to multiple local CLI coding agents (codex, claude, opencode, gemini) running in parallel, then synthesize their findings into one report. In deep mode, each agent gets its own isolated git worktree so they can run tests and chase downstream effects in parallel without stepping on each other.
 
+## Install
+
+```
+npx skills add venables/skills --skill panel-review
+```
+
 ## What it does
 
 - Builds a unified diff from the chosen target (`--uncommitted` / `--staged` / `--base` / `--commit` / `--pr`).

@@ -2,6 +2,12 @@
 
 Create, audit, and prune `AGENTS.md` / `CLAUDE.md` so every AI coding tool (Claude Code, Codex, Cursor, Copilot, Gemini, Windsurf) reads one lean source of truth.
 
+## Install
+
+```
+npx skills add venables/skills --skill optimize-agents-md
+```
+
 ## What it does
 
 - Surveys existing instruction files and detects objective facts from the repo (package manager, test/lint commands, monorepo layout).
