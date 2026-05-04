@@ -1,6 +1,6 @@
 # @venables/skills
 
-A collection of useful skills. By by [@venables](https://github.com/venables).
+A collection of skills that have helped me build production products. By [@venables](https://github.com/venables).
 
 ## Install
 
@@ -22,7 +22,6 @@ npx skills add venables/skills --skill optimize-agents-md
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | [optimize-agents-md](./skills/optimize-agents-md) | Optimize your AGENTS.md (and CLAUDE.md) files according to best practices. Works with monorepos, too                           |
 | [panel-review](./skills/panel-review)             | Fan a code review out to multiple local CLI agents (codex, claude, opencode, gemini) in parallel and amalgamate their findings |
-| [markdown-footnotes](./skills/markdown-footnotes) | Convert inline markdown links to footnote-style references                                                                     |
 
 ## Developing
 
