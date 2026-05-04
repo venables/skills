@@ -8,6 +8,17 @@ Create, audit, and prune `AGENTS.md` / `CLAUDE.md` so every AI coding tool (Clau
 npx skills add venables/skills --skill optimize-agents-md
 ```
 
+## How to use it
+
+Just ask Claude Code in plain English — the skill triggers off natural phrasings:
+
+- "set up CLAUDE.md for this repo"
+- "create an AGENTS.md"
+- "onboard this repo for Claude Code" / "make Claude follow my conventions"
+- "audit my AGENTS.md"
+- "my CLAUDE.md is too long, clean it up"
+- "set this up for Codex / Cursor / Copilot / Gemini / Windsurf too"
+
 ## What it does
 
 - Surveys existing instruction files and detects objective facts from the repo (package manager, test/lint commands, monorepo layout).
