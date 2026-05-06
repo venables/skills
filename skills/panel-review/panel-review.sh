@@ -218,10 +218,37 @@ if (( CHECKOUT_MODE )); then
         [[ -s "$gh_err" ]] && msg+=$'\n  gh stderr: '"$(cat "$gh_err")"
         die "$msg"
       fi
-      # Extract the host from the PR's own URL (not hardcoded to github.com)
-      # so this works against GitHub Enterprise too.
+      # Mirror origin's URL shape (SSH vs HTTPS) so the fetch uses whatever
+      # auth this machine has already set up. Hardcoding HTTPS hangs on a
+      # credential prompt for users with SSH-only auth and no HTTPS credential
+      # helper. Falls back to HTTPS (host derived from pr_url so GitHub
+      # Enterprise works) when origin is missing or in an unrecognized shape.
       pr_host="$(echo "$pr_url" | sed -E 's|^(https?://[^/]+)/.*|\1|')"
-      pr_head_url="${pr_host}/${pr_head_nwo}.git"
+      pr_head_https_url="${pr_host}/${pr_head_nwo}.git"
+      origin_url="$(git remote get-url origin 2>/dev/null || true)"
+      case "$origin_url" in
+        ssh://*)
+          # ssh://[user@]host[:port]/owner/repo[.git]
+          ssh_authority="${origin_url#ssh://}"
+          ssh_authority="${ssh_authority%%/*}"
+          pr_head_url="ssh://${ssh_authority}/${pr_head_nwo}.git"
+          ;;
+        *://*)
+          # https/http/git/file URL — use HTTPS fallback.
+          pr_head_url="$pr_head_https_url"
+          ;;
+        *:*)
+          # SCP-like SSH: [user@]host:path. The bare `host:path` form (no
+          # user@) is common with ~/.ssh/config Host aliases like
+          # `github-work:owner/repo.git`, so we don't require `@`. The earlier
+          # *://* arm has already consumed every URL-form remote, so any colon
+          # left here is the SCP separator.
+          pr_head_url="${origin_url%%:*}:${pr_head_nwo}.git"
+          ;;
+        *)
+          pr_head_url="$pr_head_https_url"
+          ;;
+      esac
       git fetch --quiet "$pr_head_url" "$pr_head_sha" >&2 \
         || die "git fetch $pr_head_url $pr_head_sha failed"
       WORKTREE_REF="$pr_head_sha"
