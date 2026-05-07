@@ -418,21 +418,28 @@ if (( PROMPT_BYTES > PROMPT_MAX_BYTES )); then
 fi
 
 # ----- Resolve a portable timeout binary (gtimeout on macOS via coreutils) -----
-TIMEOUT_BIN=""
+#
+# Hard requirement: the whole point of --timeout is that a hung panelist must
+# not be able to block the entire review indefinitely. macOS does not ship
+# `timeout` by default; without coreutils installed we'd have silently fallen
+# back to "no timeout" and the --timeout flag would have been a lie. Fail
+# loudly instead so the user installs coreutils once and never hits this
+# class of hang.
 if command -v timeout >/dev/null 2>&1; then
   TIMEOUT_BIN="timeout"
 elif command -v gtimeout >/dev/null 2>&1; then
   TIMEOUT_BIN="gtimeout"
+else
+  die "no timeout binary on PATH (need GNU 'timeout' or 'gtimeout' from coreutils).
+  Without one, a hung panelist would block the entire review indefinitely
+  and --timeout would silently no-op. Install:
+    macOS:        brew install coreutils    (provides 'gtimeout')
+    Debian/Ubuntu: timeout ships with coreutils (already installed)
+    Alpine:       apk add coreutils"
 fi
 
-# Wrapper that prepends a timeout if available. Avoids empty-array expansion under
-# bash 3.2 + set -u.
 run_panelist() {
-  if [[ -n "$TIMEOUT_BIN" ]]; then
-    "$TIMEOUT_BIN" "$TIMEOUT_SECS" "$@"
-  else
-    "$@"
-  fi
+  "$TIMEOUT_BIN" "$TIMEOUT_SECS" "$@"
 }
 
 # ----- Build each panelist's argv -----
