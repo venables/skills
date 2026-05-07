@@ -383,6 +383,25 @@ PROMPT_FILE="$OUT_DIR/prompt.md"
 # Read prompt once into memory so each child reads from there.
 PROMPT_CONTENT="$(cat "$PROMPT_FILE")"
 
+# Every panelist receives the prompt as a single argv element (codex/claude/
+# opencode/gemini all take the prompt positionally). That argv element is
+# bounded by ARG_MAX, which on macOS is 1MB total but in practice ~256KB once
+# environment variables and other argv elements share the budget. A 200KB
+# diff plus PR body plus template can easily approach that ceiling, and the
+# kernel's failure mode is an opaque "Argument list too long" rather than a
+# useful error. Bail early with a clear message.
+PROMPT_BYTES=${#PROMPT_CONTENT}
+PROMPT_MAX_BYTES="${PANEL_REVIEW_PROMPT_MAX_BYTES:-180000}"
+if (( PROMPT_BYTES > PROMPT_MAX_BYTES )); then
+  die "composed prompt is $PROMPT_BYTES bytes, exceeds $PROMPT_MAX_BYTES.
+  The prompt is passed to each panelist CLI as a single argv element, which
+  is bounded by ARG_MAX (~256KB usable on macOS once env+other argv share
+  the budget). To stay below that ceiling, narrow the diff (e.g. --commit,
+  --staged, smaller --base range), lower PANEL_REVIEW_MAX_DIFF_BYTES, or
+  raise PANEL_REVIEW_PROMPT_MAX_BYTES if you know your environment's
+  ARG_MAX is higher (e.g. Linux is typically 2MB)."
+fi
+
 # ----- Resolve a portable timeout binary (gtimeout on macOS via coreutils) -----
 TIMEOUT_BIN=""
 if command -v timeout >/dev/null 2>&1; then
