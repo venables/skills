@@ -405,7 +405,10 @@ PROMPT_CONTENT="$(cat "$PROMPT_FILE")"
 # diff plus PR body plus template can easily approach that ceiling, and the
 # kernel's failure mode is an opaque "Argument list too long" rather than a
 # useful error. Bail early with a clear message.
-PROMPT_BYTES=${#PROMPT_CONTENT}
+# Use wc -c (bytes), not ${#var} (characters under UTF-8 locale). A PR body or
+# diff with multibyte content would otherwise undercount and slip past the
+# precheck, defeating the purpose of guarding against ARG_MAX.
+PROMPT_BYTES=$(printf '%s' "$PROMPT_CONTENT" | wc -c | tr -d ' ')
 PROMPT_MAX_BYTES="${PANEL_REVIEW_PROMPT_MAX_BYTES:-180000}"
 if (( PROMPT_BYTES > PROMPT_MAX_BYTES )); then
   die "composed prompt is $PROMPT_BYTES bytes, exceeds $PROMPT_MAX_BYTES.
