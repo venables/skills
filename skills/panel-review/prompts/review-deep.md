@@ -46,7 +46,7 @@ NO_FINDINGS — <one sentence on what you checked, including any tests/tools you
 ## Hard constraints
 
 - **Local-only writes.** Edits to the worktree are fine — it's thrown away when the run exits. **Do not** push, force-push, open/close/comment on PRs, edit issues, post to Slack/Linear/Discord, publish packages, or make any network call that mutates state outside this machine. The worktree's `.git` shares its object database with the parent repo; a stray `git push` would publish from your worktree.
-- **No side-effecting installs.** `npm install` / `pip install` / `cargo install` are fine if needed to run tests; do not install global tools, modify shell config, or alter environment beyond this worktree.
+- **No side-effecting installs outside the worktree.** Project-local installs are fine when needed to run tests: `npm install` / `pnpm install` / `yarn install` (write to ./node_modules), `cargo build` / `cargo test` (write to ./target and the user-level cargo registry cache, which is read-mostly), and `pip install` _only inside an existing project virtualenv_. Do not run installs that mutate user-global or system-global state — specifically: bare `pip install` (writes to user/site-packages), `pip install --user`, `cargo install` (writes to ~/.cargo/bin), `npm install -g`, `brew install`, `apt`/`dnf`/`pacman`, or anything that edits shell config (.bashrc, .zshrc, .profile, ~/.config/...). If a test needs a tool that isn't already installed, note it in a finding rather than installing it.
 - **Bounded test runs.** If a test command hangs or takes more than ~3 minutes, kill it and note the timeout in your finding rather than waiting it out.
 - Output goes to stdout only.
 - Do not paraphrase the diff back at the reader.
