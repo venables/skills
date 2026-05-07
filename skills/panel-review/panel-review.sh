@@ -124,7 +124,22 @@ while [[ $# -gt 0 ]]; do
       # passed to git worktree add — an unsanitized name like '../foo' would
       # escape $OUT_DIR and leave a stale entry in .git/worktrees.
       case "$2" in
-        codex|claude|opencode|gemini) PANELISTS+=("$2") ;;
+        codex|claude|opencode|gemini)
+          # Skip duplicates. Two --panelist flags with the same name would
+          # collide on $OUT_DIR/$p.{out,err,rc} (each panelist's child
+          # would clobber the other's stdout/stderr/exit-code) and on
+          # $OUT_DIR/worktree-$p in --checkout mode (second `git worktree
+          # add` fails with "already exists" and aborts the run). The
+          # name-keyed completion tracker also can't tell duplicates apart
+          # and would block forever waiting for a second "done".
+          dupe=0
+          if [[ ${#PANELISTS[@]} -gt 0 ]]; then
+            for existing in "${PANELISTS[@]}"; do
+              if [[ "$existing" == "$2" ]]; then dupe=1; break; fi
+            done
+          fi
+          (( dupe )) || PANELISTS+=("$2")
+          ;;
         *) die "--panelist: unknown panelist '$2' (allowed: codex, claude, opencode, gemini)" ;;
       esac
       shift 2 ;;
