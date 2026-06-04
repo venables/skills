@@ -37,4 +37,4 @@ If you don't name a PR, the skill auto-detects from your current branch via `gh 
 - **Linear MCP required for DEFER.** Without it, you can still FIX and INVALID; DEFER will degrade to "ask the user where to file this".
 - **Review summary bodies don't have a reply API.** Only inline thread replies are first-class on GitHub. If a reviewer left their feedback in the review summary instead of inline, the skill posts a top-level PR comment instead.
 - **One commit per comment.** Even when several comments touch the same file. Keeps revert granularity per comment and lets each fix-reply reference the exact SHA that fixed it.
-- **Different from `post-review-comments`.** That one _posts_ new findings (typically from `panel-review`). This one _consumes_ comments that already exist on the PR.
+- **Different from `post-panel-review-comments`.** That one _posts_ new findings (typically from `panel-review`). This one _consumes_ comments that already exist on the PR.

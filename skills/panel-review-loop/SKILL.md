@@ -44,7 +44,7 @@ When _not_ to use:
   directly.
 - The user wants _this_ session to review the code itself → use the code-reviewer agent.
 - The user has findings that already exist and wants to post them as PR comments or file
-  them as tickets → `post-review-comments`. Comments already on a PR that need acting on
+  them as tickets → `post-panel-review-comments`. Comments already on a PR that need acting on
   → `pr-comment-handler`.
 
 ## Prerequisite

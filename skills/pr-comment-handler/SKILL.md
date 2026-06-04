@@ -10,13 +10,13 @@ description: >
   "respond to the reviewers", "clean up the review comments", or any
   phrasing that means "go act on what reviewers have already said".
   Auto-detects the target PR from the current branch when the user does
-  not name one. Different from `post-review-comments` (which posts
+  not name one. Different from `post-panel-review-comments` (which posts
   *new* findings) and from `panel-review` (which generates findings):
   this skill consumes review comments that already exist and turns them
   into code changes, replies, and follow-up tickets. Do NOT use when the
   user wants to *generate* a review (use `panel-review` /
   `code-reviewer`), or to *post* findings produced elsewhere (use
-  `post-review-comments`).
+  `post-panel-review-comments`).
 ---
 
 # pr-comment-handler
@@ -152,7 +152,7 @@ ASK (1):
 
 For ASK items, prompt the user one at a time with `AskUserQuestion`
 offering Fix / Invalid / Defer / Skip. Use the same self-contained
-question text pattern as `post-review-comments`: include
+question text pattern as `post-panel-review-comments`: include
 panelist + path:line + body verbatim so the modal stands alone.
 
 Once ASKs are resolved, also give the user a chance to flip any of the
@@ -353,9 +353,9 @@ the user can finish them manually.
   receiving team's call. No mapping from severity or reviewer
   insistence to priority. No labels as a workaround.
 
-- **`panel-review` and `post-review-comments` are siblings, not
+- **`panel-review` and `post-panel-review-comments` are siblings, not
   alternatives.** If the user already ran a panel-review and has a list
-  of _new_ findings to post, that's `post-review-comments`. This skill
+  of _new_ findings to post, that's `post-panel-review-comments`. This skill
   is the _inverse_ flow: comments already exist on the PR and need to
   be acted on. Don't get them tangled.
 

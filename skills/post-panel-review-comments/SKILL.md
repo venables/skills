@@ -1,5 +1,5 @@
 ---
-name: post-review-comments
+name: post-panel-review-comments
 description: >
   Interactively triage code review findings (typically from a prior
   `panel-review`) via a two-stage select list: first pick which to post
@@ -8,16 +8,17 @@ description: >
   Anything not selected in either stage is dropped. Use any time the
   user has review findings with `file:line` references in conversation
   context and wants to selectively act on them — phrasings include
-  "post these comments", "triage these findings", "let me triage and post",
-  "comment these on the PR", "file these as tickets", "open a review on
-  PR <N> with these", or casual asks like "let's get these onto the PR".
-  Pairs naturally with `panel-review` but works on any structured findings
-  list with file:line refs. Do NOT use when the user wants you to
-  *generate* the findings (run a review skill first), or when they want a
-  single bulk summary comment instead of inline ones.
+  "post these comments", "post the panel review comments", "triage these
+  findings", "let me triage and post", "comment these on the PR", "file
+  these as tickets", "open a review on PR <N> with these", or casual asks
+  like "let's get these onto the PR". Pairs naturally with `panel-review`
+  but works on any structured findings list with file:line refs. Do NOT
+  use when the user wants you to *generate* the findings (run a review
+  skill first), or when they want a single bulk summary comment instead
+  of inline ones.
 ---
 
-# post-review-comments
+# post-panel-review-comments
 
 Shows the user the full finding list, then asks once which to post as
 standalone PR comments and once which of the leftovers to file as Linear
@@ -28,9 +29,12 @@ The mechanics of the GitHub or Linear APIs are not the point — you
 already know those (or your runtime exposes them). The point is the
 triage UX, the wrapper formatting, and a few sharp gotchas.
 
-**No rewrite step.** The skill posts findings as the panelist wrote
-them. If the user wants softer wording on a specific finding, they
-should ask the agent to rewrite it before triggering this skill.
+**No rewrite step.** The skill posts the finding prose as the panelist
+wrote it (it does strip the panel's severity/recommendation/attribution
+and add a polish prefix for LOW findings — see "Comment body shape" —
+but never paraphrases the body). If the user wants softer wording on a
+specific finding, they should ask the agent to rewrite it before
+triggering this skill.
 
 ## Detecting the Linear option
 
@@ -47,11 +51,11 @@ re-ask per finding.
 
 ## Inputs
 
-1. **Findings** — usually from a prior `panel-review`. Each needs
-   panelist, severity (HIGH/MEDIUM/LOW), file path, line (or range), and
-   body. Ideally a recommendation too; if missing, derive from severity
-   (HIGH → Must fix, MEDIUM → Should fix, LOW → Optional polish) and
-   let the user override.
+1. **Findings** — usually from a prior `panel-review`. Each needs a
+   file path, line (or range), and body. Severity (HIGH/MEDIUM/LOW) and
+   panelist, when present, are used internally only — to order the
+   posting sequence and to flag LOW/polish findings — and are **never
+   written into the posted comment** (see "Comment body shape").
 2. **PR ref** — number or URL. Take it from the caller's context (e.g.
    the review's scope). **Do not auto-detect from the current branch** —
    the user may have switched branches between review and post. If no
@@ -139,26 +143,40 @@ filings are independent — file them anyway.
 
 ## Comment body shape
 
-Each selected finding becomes one inline comment:
+Each selected finding becomes one inline comment. Keep it minimal — just
+the finding, and a possible solution when one exists:
 
 ```markdown
-**Recommendation:** <Must fix | Should fix | Optional polish>
-**Severity:** <High | Medium | Low>
-
 <finding body verbatim>
 
-<optional fix line>
+**Possible Solution:** <fix>
 ```
 
-- Title Case sentence form (`Must fix`, `High`) — not the `must-fix`
-  slug or all-caps `HIGH` panelists emit. All-caps shouts in an inline
-  comment.
-- Both labels on their own lines, blank line before body. Two lines, not
-  one — separation is what makes them scannable.
-- Don't drop either label. If genuinely unknown, ask the user.
-- No provenance footer. The comment body is just the recommendation,
-  severity, and finding. Panelist attribution belongs in the triage
-  transcript / chat, not on the PR.
+For **LOW / polish findings only**, prefix the body so the reader knows
+it's non-blocking:
+
+```markdown
+Small / Optional polish: <finding body verbatim>
+
+**Possible Solution:** <fix>
+```
+
+(`Small / Optional polish:` is the suggested phrasing — any equivalent
+soft, clearly-optional framing is fine.)
+
+Hard rules for the posted comment:
+
+- **No severity.** Don't write `Severity:`, `HIGH`/`MEDIUM`/`LOW`, or any
+  `Recommendation:` / `Must fix` line. The reader doesn't need the
+  panel's grading on the PR.
+- **No priority.** Don't add a priority label or line.
+- **No provenance.** Don't name the panelist(s) or agent(s) that found
+  it — no "Codex flagged…", no `<sub>` footer. Attribution stays in the
+  triage transcript / chat, not on the PR.
+- **`Possible Solution:` only when there is one.** If the finding has no
+  suggested fix, omit the line entirely — don't invent one.
+- The finding prose itself is posted **verbatim** (minus the polish
+  prefix). Don't paraphrase or re-grade it.
 
 ## Posting (standalone PR comments)
 
