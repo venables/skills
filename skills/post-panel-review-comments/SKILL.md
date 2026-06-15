@@ -202,6 +202,39 @@ The tradeoff is one notification per posted comment instead of one for
 the batch. For finding lists of 10+, mention the notification count to
 the user before posting.
 
+### Falling back to a top-level comment when GitHub rejects the inline
+
+GitHub only accepts inline comments on lines inside the PR diff hunks.
+When a finding points at unchanged context, the `POST /pulls/{N}/comments`
+call fails (HTTP 422, message like `line must be part of the diff`).
+**Don't drop it and don't just report it — automatically re-post that
+finding as a top-level PR issue comment** via
+`POST /repos/{owner}/{repo}/issues/{pull_number}/comments` (equivalently
+`gh pr comment <ref> --body ...`).
+
+The fallback is per-comment and automatic: each inline rejection triggers
+exactly one top-level repost. Comments that posted inline are unaffected.
+
+A top-level comment isn't anchored to a line, so it needs the location in
+the body. Prepend a `**Location:**` line with the `file:line` and the
+blob deep-link (the diff anchor won't resolve outside the hunk — use the
+`https://github.com/<OWNER>/<REPO>/blob/<HEAD_SHA>/<PATH>#L<LINE>` form),
+then the **same body shape as inline**: finding prose verbatim, an
+optional `**Possible Solution:**` line, and the `Small / Optional polish:`
+prefix for LOW findings.
+
+```markdown
+**Location:** `<path>:<line>` — <blob deep-link URL>
+
+<finding body verbatim>
+
+**Possible Solution:** <fix>
+```
+
+Same no-severity / no-priority / no-provenance rules as inline comments
+(see "Comment body shape"). Track which findings fell back so you can
+report them distinctly (see "Reporting back").
+
 ## Filing (Linear tickets)
 
 Only available when Linear is reachable from this session — see
@@ -225,16 +258,23 @@ Only available when Linear is reachable from this session — see
 After posting and filing, report:
 
 - The list of posted comment URLs (one per comment), grouped together
+- Which of those fell back to a top-level comment (because GitHub
+  rejected the inline) and why — call these out distinctly so the user
+  knows they're not anchored to the line
 - The Linear ticket URLs (if any tickets were filed), grouped together
-- One-line summary: `Posted N comments to PR #X, filed M Linear tickets, dropped K`
-- Any per-comment errors GitHub returned (typically: line outside the
-  diff hunk) so the user can post those manually
+- One-line summary:
+  `Posted N comments to PR #X (J as top-level fallbacks), filed M Linear tickets, dropped K`
+- Any comment that failed _both_ inline and the top-level fallback (rare)
+  so the user can handle it manually
 
 ## Gotchas
 
 - **Inline comments only work on lines inside the PR diff.** If a
   panelist flags unchanged context, the API rejects just that comment
-  (the rest still post). Surface the rejection — don't silently swallow.
+  (the rest still post). The skill auto-reposts the rejected one as a
+  top-level PR comment (with the `file:line` in the body) rather than
+  dropping it — see "Falling back to a top-level comment". Never silently
+  swallow a rejection.
 - **One notification per posted comment.** Standalone comments don't
   batch. For very large lists (10+), warn the user before posting so
   they can route some to Linear or drop them instead.
@@ -244,18 +284,23 @@ After posting and filing, report:
 ## Dry-run mode
 
 If the user asks for a dry run ("don't actually post", "just show me the
-payload") or sets `POST_REVIEW_COMMENTS_DRY_RUN=1`, do everything
+payload") or sets `POST_PANEL_REVIEW_COMMENTS_DRY_RUN=1`, do everything
 normally but write:
 
 - `./comments.json` — array of per-comment payloads (each as it would be
-  POSTed to `/pulls/{N}/comments`), instead of calling the API
+  POSTed to `/pulls/{N}/comments`), instead of calling the API. Dry-run
+  can't observe which lines GitHub would reject, so it emits the inline
+  payload for every selected finding. For any finding you can already
+  tell sits outside the diff hunk, note in the transcript that it would
+  fall back to a top-level comment on a real run.
 - `./linear_tickets.json` — array of `{team, project, title, description}`
   objects, instead of filing tickets
 - `./triage_transcript.md` — the full finding list (with deep-links),
   the exact option labels shown in each `AskUserQuestion` (so the modal
   text is auditable without an interactive user), and the final
-  disposition per finding (posted to PR / filed to Linear / dropped).
-  If Stage 2 was skipped because Linear wasn't reachable, record that
-  explicitly — distinguish from a user-declined Stage 2.
+  disposition per finding (posted to PR / posted as top-level fallback /
+  filed to Linear / dropped). If Stage 2 was skipped because Linear
+  wasn't reachable, record that explicitly — distinguish from a
+  user-declined Stage 2.
 
 Honor user-supplied paths if provided (e.g. "write to /tmp/comments.json").
