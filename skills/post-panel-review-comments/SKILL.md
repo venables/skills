@@ -80,6 +80,12 @@ inside the PR diff, or the blob fallback
 `https://github.com/<OWNER>/<REPO>/blob/<HEAD_SHA>/<PATH>#L<LINE>` for
 lines outside the diff hunk.
 
+Then, **before printing the list**, pull the PR's existing comments and
+match each finding against them so the user triages with that context
+(see "Deduplicating against existing comments" for the fetch, the
+bot-only matching rule, and the match test). This is detection only — no
+reactions or replies yet; you act on the matches at post time.
+
 ### 1. Print the full finding list in chat
 
 Numbered `1..N`. Each entry shows:
@@ -90,6 +96,9 @@ Numbered `1..N`. Each entry shows:
   hides the preview)
 - the finding body verbatim
 - suggested fix if any
+- **a `↩ already raised by <bot> — <existing comment URL>` line** when the
+  detection pass matched an existing automated comment, so the user can
+  see at a glance it'll be a 👍 (not a fresh comment) if selected
 
 The select-list options that follow are terse references to these
 numbers — the chat list is where the user actually reads the findings.
@@ -99,7 +108,10 @@ numbers — the chat list is where the user actually reads the findings.
 
 Ask via `AskUserQuestion` with `multiSelect: true`. Option labels:
 `#<N>: <panelist> <severity> <path>:<line>` (terse — the chat list above
-has the prose).
+has the prose). Suffix matched findings with ` ↩dup` so the marker
+carries into the select list. Selecting a matched finding means "👍 the
+existing comment" (and reply only if there's serious added value), not
+"post a duplicate".
 
 - **≤ 4 findings:** one question, all findings as options.
 - **> 4 findings:** chunk into multiple questions of ≤ 4 options each.
@@ -178,9 +190,77 @@ Hard rules for the posted comment:
 - The finding prose itself is posted **verbatim** (minus the polish
   prefix). Don't paraphrase or re-grade it.
 
+## Deduplicating against existing comments
+
+Run in **two passes**: detect during triage (so the user picks with that
+context), act at post time (so reactions land on the final selected set
+and catch anything a bot posted mid-triage). The fetch and match logic
+below is shared by both passes.
+
+### The fetch + match (shared)
+
+Fetch both comment surfaces:
+
+- inline review comments: `gh api repos/{owner}/{repo}/pulls/{N}/comments --paginate`
+- top-level issue comments: `gh api repos/{owner}/{repo}/issues/{N}/comments --paginate`
+
+Each item gives you `id`, `user.login`, `user.type` (`"Bot"` for app
+accounts), `path`, `line`/`original_line`, `body`, and `html_url`. Treat a
+comment as a candidate duplicate only when it's from **another automated
+reviewer** — `user.type == "Bot"`, or a login that's clearly a review bot
+(`coderabbitai`, `copilot-pull-request-reviewer`, `cursor`, `greptile`,
+`sourcery-ai`, a `github-actions` bot, etc.). Ignore human comments and
+your own prior comments; don't dedupe against those.
+
+A finding **matches** an existing automated comment when it's about the
+same issue — same file, overlapping/adjacent line, and the _same
+underlying problem_ (read both bodies and judge semantically; identical
+wording is not required, and a different bot phrasing the same bug counts
+as a match). Don't over-match: when in doubt whether two comments are
+truly the same issue, treat it as no match and post your own — a missed
+dedupe is cheaper than collapsing a real finding into a 👍 on an
+unrelated comment.
+
+### Pass 1 — detect during triage (read-only)
+
+Before printing the finding list, run the fetch + match and annotate each
+matched finding in the chat list and the Stage 1 option label (see
+"Triage flow"). **No reactions or replies in this pass** — it only informs
+the user's pick. Record the matched comment's `id`, author, and
+`html_url` alongside the finding to reuse at post time.
+
+### Pass 2 — act at post time
+
+After triage, for each finding the user **selected to post**:
+
+1. **Matched (from Pass 1, or newly matched on a quick re-fetch) → react,
+   don't duplicate.** A bot may have commented during triage, so re-run
+   the match for selected findings that weren't already flagged — cheap,
+   and it prevents a duplicate slipping through. Add a 👍 to the existing
+   comment instead of posting your own, and skip posting that finding:
+   - inline review comment:
+     `gh api -X POST repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions -f content=+1`
+   - top-level issue comment:
+     `gh api -X POST repos/{owner}/{repo}/issues/comments/{comment_id}/reactions -f content=+1`
+
+2. **Matched _and_ you have materially new information** — a concrete
+   repro, an additional affected location, a root cause the other bot
+   missed, or a better fix — **also** reply in that comment's thread with
+   just the delta. Still react with 👍. Reply via
+   `POST /pulls/{N}/comments` with `in_reply_to: <comment_id>` (for inline
+   threads) or `gh pr comment` referencing the location (for top-level
+   threads). Lead the reply with a short framing like `Some more info:`
+   and include **only** the new detail — don't restate what they already
+   said. Apply this sparingly: a 👍 alone is the default; reply only when
+   there's serious added value.
+
+3. **No match → post normally** per the section below.
+
+Surface every dedupe decision in the report (see "Reporting back").
+
 ## Posting (standalone PR comments)
 
-Post each selected finding as an **independent inline comment** via
+Post each finding that **wasn't deduped** as an **independent inline comment** via
 `POST /repos/{owner}/{repo}/pulls/{pull_number}/comments` with `body`,
 `commit_id` (head SHA), `path`, and the line targeting fields. **No
 review wrapper, no batched review.** GitHub does not surface a "left a
@@ -261,9 +341,13 @@ After posting and filing, report:
 - Which of those fell back to a top-level comment (because GitHub
   rejected the inline) and why — call these out distinctly so the user
   knows they're not anchored to the line
+- **Which findings were deduped against an existing automated comment** —
+  for each, the existing comment's `html_url`, the bot that authored it,
+  and whether you reacted only (👍) or also replied with extra info. Call
+  these out distinctly so the user knows they weren't posted fresh.
 - The Linear ticket URLs (if any tickets were filed), grouped together
 - One-line summary:
-  `Posted N comments to PR #X (J as top-level fallbacks), filed M Linear tickets, dropped K`
+  `Posted N comments to PR #X (J as top-level fallbacks), 👍'd D existing automated comments, filed M Linear tickets, dropped K`
 - Any comment that failed _both_ inline and the top-level fallback (rare)
   so the user can handle it manually
 
@@ -280,6 +364,16 @@ After posting and filing, report:
   they can route some to Linear or drop them instead.
 - **Don't auto-detect the PR from the current branch.** Pass the ref
   through from the caller's context.
+- **Dedupe is two passes: detect during triage, act at post time.**
+  Detecting during triage lets the user see a finding is already covered
+  before they pick it; acting at post time keeps reactions on the final
+  selected set and catches bot comments that landed mid-triage. Don't
+  collapse it into one pass at either end (see "Deduplicating against
+  existing comments").
+- **Only dedupe against other automated reviewers.** Don't 👍-and-skip a
+  finding because a _human_ already mentioned it, and never dedupe
+  against your own earlier comments. When unsure two comments are the
+  same issue, post your own rather than collapsing it to a reaction.
 
 ## Dry-run mode
 
@@ -292,15 +386,21 @@ normally but write:
   can't observe which lines GitHub would reject, so it emits the inline
   payload for every selected finding. For any finding you can already
   tell sits outside the diff hunk, note in the transcript that it would
-  fall back to a top-level comment on a real run.
+  fall back to a top-level comment on a real run. **Still run the
+  triage-time detection pass** (it's read-only) and, for any finding that
+  matches an existing automated comment, omit its payload from
+  `comments.json` and record the planned 👍 (and any reply body) in the
+  transcript instead. Skip the post-time act pass — write no reactions or
+  replies in a dry run.
 - `./linear_tickets.json` — array of `{team, project, title, description}`
   objects, instead of filing tickets
 - `./triage_transcript.md` — the full finding list (with deep-links),
   the exact option labels shown in each `AskUserQuestion` (so the modal
   text is auditable without an interactive user), and the final
   disposition per finding (posted to PR / posted as top-level fallback /
-  filed to Linear / dropped). If Stage 2 was skipped because Linear
-  wasn't reachable, record that explicitly — distinguish from a
-  user-declined Stage 2.
+  filed to Linear / dropped / deduped-to-👍 on an existing comment). For
+  deduped findings, record the matched comment's URL and author. If
+  Stage 2 was skipped because Linear wasn't reachable, record that
+  explicitly — distinguish from a user-declined Stage 2.
 
 Honor user-supplied paths if provided (e.g. "write to /tmp/comments.json").
