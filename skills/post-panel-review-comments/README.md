@@ -26,9 +26,10 @@ The skill prints the full numbered finding list in chat, then walks you through 
 - Resolves the PR via `gh pr view` (you pass the PR ref explicitly — it does not auto-detect from the current branch).
 - Detects whether the calling agent can actually reach Linear from this session (via MCP, CLI, API token — whatever the runtime exposes). If no, Stage 2 is skipped entirely.
 - Posts each selected finding as a **standalone inline comment** via `POST /pulls/{N}/comments` — no review wrapper, no "X left a review" timeline entry. The comment body is just the finding (verbatim) plus a `**Possible Solution:**` line when one exists; LOW/polish findings get a `Small / Optional polish:` prefix. **No severity, no priority, no panelist/agent attribution** is written into the comment. Calls are sequenced HIGH → MEDIUM → LOW internally so notifications arrive in priority order.
+- **Deduplicates against other automated reviews.** During triage it flags any finding another review bot (CodeRabbit, Copilot, Cursor, Greptile, etc.) already raised, so you pick with that in view; at post time it adds a 👍 reaction to that bot's comment instead of posting a duplicate (re-checking for comments that landed mid-triage). It replies to the existing thread (`Some more info: …`) only when it has materially new detail (a repro, another affected location, a better fix). Human comments and its own prior comments are never deduped against.
 - **Auto-falls back to a top-level PR comment** when GitHub rejects an inline comment (line outside the diff hunk). The rejected finding is reposted as a regular issue comment with the `file:line` and a deep-link in the body, so nothing gets dropped on the floor.
 - Files Linear tickets one-by-one with the title derived from the finding and the PR link + file:line + severity in the description. **No priority is set** — that's the issue owner's call.
-- Reports the comment URLs, which ones fell back to top-level, and anything that failed both inline and the fallback.
+- Reports the comment URLs, which ones fell back to top-level, which were deduped to a 👍 on an existing automated comment, and anything that failed both inline and the fallback.
 
 ## What it does NOT do
 
@@ -39,6 +40,7 @@ The skill prints the full numbered finding list in chat, then walks you through 
 
 - **GitHub only allows inline comments on lines inside the PR diff hunks.** Findings that point at unchanged context outside a hunk get rejected by the API — the skill automatically reposts those as top-level PR comments (with the `file:line` in the body) rather than dropping them.
 - **No PR auto-detection.** Branch state can drift between running the review and posting comments. The skill takes the PR ref from the calling assistant's context (which already knows it from the review's scope) rather than guessing.
+- **Dedupe is two passes.** It detects matches during triage (so each already-covered finding is flagged in the list before you pick it) and acts at post time (👍/reply, re-checking for bot comments that landed mid-triage). Dedupe is intentionally conservative — when two comments aren't clearly the same issue, it posts its own rather than collapsing the finding into a 👍.
 - **One notification per comment.** Standalone comments don't batch. For 10+ findings, expect 10+ emails — consider routing some to Linear instead.
 - **No priority on Linear tickets.** Severity is recorded in the ticket description but never mapped to a Linear priority — triage priority is for the issue owner, not the review panel.
 - **No severity, priority, or provenance on PR comments.** The posted comment is just the finding plus an optional `Possible Solution:` line (and a `Small / Optional polish:` prefix for LOW findings). The panel's grading and panelist attribution stay in the triage transcript and chat, not on the PR.
