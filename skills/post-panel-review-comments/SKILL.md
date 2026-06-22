@@ -69,9 +69,11 @@ need a concrete location.
 
 Before triaging, resolve and surface the PR back to the user
 (`PR #N: <title> — <url>`) — cheap sanity check you're targeting the
-right PR. Use `gh pr view <ref> --json number,url,title,headRefOid,nameWithOwner`;
-`headRefOid` becomes `commit_id` when posting and `nameWithOwner` is
-the `{owner}/{repo}` for the comments endpoint.
+right PR. Use `gh pr view <ref> --json number,url,title,headRefOid`;
+`headRefOid` becomes `commit_id` when posting and the `{owner}/{repo}` for
+the comments endpoint comes from the PR `url`
+(`https://github.com/{owner}/{repo}/pull/N` — the base repo, where
+comments are posted even for fork PRs).
 
 Sort findings HIGH → MEDIUM → LOW (within a severity, group by file).
 Build a deep-link for every finding before showing the list — using
@@ -98,7 +100,7 @@ Numbered `1..N`. Each entry shows:
 - suggested fix if any
 - **a `↩ already raised by <bot> — <existing comment URL>` line** when the
   detection pass matched an existing automated comment, so the user can
-  see at a glance it'll be a 👍 (not a fresh comment) if selected
+  see at a glance it'll be a +1 reaction (not a fresh comment) if selected
 
 The select-list options that follow are terse references to these
 numbers — the chat list is where the user actually reads the findings.
@@ -109,7 +111,7 @@ numbers — the chat list is where the user actually reads the findings.
 Ask via `AskUserQuestion` with `multiSelect: true`. Option labels:
 `#<N>: <panelist> <severity> <path>:<line>` (terse — the chat list above
 has the prose). Suffix matched findings with ` ↩dup` so the marker
-carries into the select list. Selecting a matched finding means "👍 the
+carries into the select list. Selecting a matched finding means "+1 the
 existing comment" (and reply only if there's serious added value), not
 "post a duplicate".
 
@@ -252,7 +254,7 @@ context, or you're inferring it rather than quoting the panelist), use
 hint because it looks one-click-safe.
 
 Suggestions compose with everything else: a suggestion comment still
-dedupes against existing automated comments (a match → 👍, no suggestion
+dedupes against existing automated comments (a match → +1, no suggestion
 posted) and still sequences HIGH → MEDIUM → LOW.
 
 ## Deduplicating against existing comments
@@ -283,7 +285,7 @@ underlying problem_ (read both bodies and judge semantically; identical
 wording is not required, and a different bot phrasing the same bug counts
 as a match). Don't over-match: when in doubt whether two comments are
 truly the same issue, treat it as no match and post your own — a missed
-dedupe is cheaper than collapsing a real finding into a 👍 on an
+dedupe is cheaper than collapsing a real finding into a +1 reaction on an
 unrelated comment.
 
 ### Pass 1 — detect during triage (read-only)
@@ -301,7 +303,7 @@ After triage, for each finding the user **selected to post**:
 1. **Matched (from Pass 1, or newly matched on a quick re-fetch) → react,
    don't duplicate.** A bot may have commented during triage, so re-run
    the match for selected findings that weren't already flagged — cheap,
-   and it prevents a duplicate slipping through. Add a 👍 to the existing
+   and it prevents a duplicate slipping through. Add a +1 reaction to the existing
    comment instead of posting your own, and skip posting that finding:
    - inline review comment:
      `gh api -X POST repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions -f content=+1`
@@ -311,12 +313,12 @@ After triage, for each finding the user **selected to post**:
 2. **Matched _and_ you have materially new information** — a concrete
    repro, an additional affected location, a root cause the other bot
    missed, or a better fix — **also** reply in that comment's thread with
-   just the delta. Still react with 👍. Reply via
+   just the delta. Still react with +1. Reply via
    `POST /pulls/{N}/comments` with `in_reply_to: <comment_id>` (for inline
    threads) or `gh pr comment` referencing the location (for top-level
    threads). Lead the reply with a short framing like `Some more info:`
    and include **only** the new detail — don't restate what they already
-   said. Apply this sparingly: a 👍 alone is the default; reply only when
+   said. Apply this sparingly: a +1 reaction alone is the default; reply only when
    there's serious added value.
 
 3. **No match → post normally** per the section below.
@@ -426,11 +428,11 @@ After posting and filing, report:
   downgraded to prose)
 - **Which findings were deduped against an existing automated comment** —
   for each, the existing comment's `html_url`, the bot that authored it,
-  and whether you reacted only (👍) or also replied with extra info. Call
+  and whether you reacted only (+1) or also replied with extra info. Call
   these out distinctly so the user knows they weren't posted fresh.
 - The Linear ticket URLs (if any tickets were filed), grouped together
 - One-line summary:
-  `Posted N comments to PR #X (J as top-level fallbacks), 👍'd D existing automated comments, filed M Linear tickets, dropped K`
+  `Posted N comments to PR #X (J as top-level fallbacks), +1'd D existing automated comments, filed M Linear tickets, dropped K`
 - Any comment that failed _both_ inline and the top-level fallback (rare)
   so the user can handle it manually
 
@@ -460,7 +462,7 @@ After posting and filing, report:
   selected set and catches bot comments that landed mid-triage. Don't
   collapse it into one pass at either end (see "Deduplicating against
   existing comments").
-- **Only dedupe against other automated reviewers.** Don't 👍-and-skip a
+- **Only dedupe against other automated reviewers.** Don't +1-and-skip a
   finding because a _human_ already mentioned it, and never dedupe
   against your own earlier comments. When unsure two comments are the
   same issue, post your own rather than collapsing it to a reaction.
@@ -479,7 +481,7 @@ normally but write:
   fall back to a top-level comment on a real run. **Still run the
   triage-time detection pass** (it's read-only) and, for any finding that
   matches an existing automated comment, omit its payload from
-  `comments.json` and record the planned 👍 (and any reply body) in the
+  `comments.json` and record the planned +1 (and any reply body) in the
   transcript instead. Skip the post-time act pass — write no reactions or
   replies in a dry run.
 - `./linear_tickets.json` — array of `{team, project, title, description}`
@@ -489,7 +491,7 @@ normally but write:
   text is auditable without an interactive user), and the final
   disposition per finding (posted to PR — note whether as a mergeable
   suggestion or prose / posted as top-level fallback / filed to Linear /
-  dropped / deduped-to-👍 on an existing comment). For
+  dropped / deduped-to-+1 on an existing comment). For
   deduped findings, record the matched comment's URL and author. If
   Stage 2 was skipped because Linear wasn't reachable, record that
   explicitly — distinguish from a user-declined Stage 2.
