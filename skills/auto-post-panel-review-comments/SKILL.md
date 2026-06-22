@@ -165,6 +165,17 @@ comments endpoint comes from the PR `url`
 (`https://github.com/{owner}/{repo}/pull/N` — the base repo, which is
 where comments are posted even for fork PRs).
 
+**Caller-pinned commit_id.** If an orchestrator (e.g. `auto-review`) hands
+you a specific head SHA to post against, treat it as the **effective
+reviewed SHA** (`effective_sha = pinned commit_id ?? headRefOid`) and use
+it **everywhere a SHA appears** — the inline `commit_id`, the
+`blob/<SHA>/...` deep-link in top-level fallbacks, the Linear ticket
+links, and the report — not just the inline `commit_id`. It's pinning the
+exact revision that was reviewed so nothing drifts onto a head that was
+pushed mid-review (GitHub marks moved inline comments outdated; the blob
+and Linear links stay anchored to the reviewed code). Only re-resolve
+`headRefOid` when no commit_id was pinned.
+
 **Comment body shape** (verbatim from `post-panel-review-comments`):
 
 - The finding body **verbatim**. No severity, no priority, no
