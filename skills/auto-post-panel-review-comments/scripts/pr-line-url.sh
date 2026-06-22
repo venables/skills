@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Compute a GitHub PR file-line anchor URL for a given path:line, so the skill
-# can wrap every `file:line` reference (in the triage list, comments, and Linear
-# bodies) as a tappable markdown link.
+# Compute a GitHub PR file-line anchor URL for a given path:line, so this skill
+# can emit tappable deep-links in the disposition report, in Linear ticket
+# bodies, and in top-level fallback comments (see SKILL.md "Deep-links").
 #
 # The logic below is duplicated in
-# skills/auto-post-panel-review-comments/scripts/pr-line-url.sh (each skill
-# installs standalone, so the script is copied rather than shared) — keep the
-# two in sync.
+# skills/post-panel-review-comments/scripts/pr-line-url.sh (each skill installs
+# standalone, so the script is copied rather than shared) — keep the two in sync.
 #
 # GitHub's per-file PR diff anchor is `diff-<sha256-of-relative-path>`. Append
 # `R<n>` for the new (right-side) line in the diff, or `L<n>` for the old/left
