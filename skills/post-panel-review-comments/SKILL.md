@@ -156,7 +156,22 @@ filings are independent — file them anyway.
 ## Comment body shape
 
 Each selected finding becomes one inline comment. Keep it minimal — just
-the finding, and a possible solution when one exists:
+the finding, and a possible solution when one exists. Prefer a
+**mergeable suggestion** (a ` ```suggestion ` block) over prose whenever
+the fix is a concrete drop-in replacement for the commented line(s) — see
+"Mergeable suggestions" below for when it qualifies:
+
+````markdown
+<finding body verbatim>
+
+```suggestion
+<exact replacement for the commented line(s)>
+```
+````
+
+When the fix exists but is **not** a clean line replacement (conceptual,
+adds code elsewhere, spans beyond the anchored lines, or you can't render
+it exactly), fall back to prose instead of a suggestion:
 
 ```markdown
 <finding body verbatim>
@@ -165,16 +180,21 @@ the finding, and a possible solution when one exists:
 ```
 
 For **LOW / polish findings only**, prefix the body so the reader knows
-it's non-blocking:
+it's non-blocking (the suggestion or prose form still follows):
 
-```markdown
+````markdown
 Small / Optional polish: <finding body verbatim>
 
-**Possible Solution:** <fix>
+```suggestion
+<exact replacement for the commented line(s)>
 ```
+````
 
 (`Small / Optional polish:` is the suggested phrasing — any equivalent
-soft, clearly-optional framing is fine.)
+soft, clearly-optional framing is fine.) When a LOW finding's fix isn't a
+clean drop-in, use the prose form instead — identical to the
+`**Possible Solution:**` shape above, just with the `Small / Optional
+polish:` prefix added.
 
 Hard rules for the posted comment:
 
@@ -185,10 +205,55 @@ Hard rules for the posted comment:
 - **No provenance.** Don't name the panelist(s) or agent(s) that found
   it — no "Codex flagged…", no `<sub>` footer. Attribution stays in the
   triage transcript / chat, not on the PR.
-- **`Possible Solution:` only when there is one.** If the finding has no
-  suggested fix, omit the line entirely — don't invent one.
+- **A fix line only when there is one.** If the finding has no suggested
+  fix, omit both the suggestion block and the `Possible Solution:` line —
+  don't invent one.
+- **One fix form, not both.** A finding gets either a ` ```suggestion `
+  block or a `**Possible Solution:**` line — never both for the same fix.
 - The finding prose itself is posted **verbatim** (minus the polish
   prefix). Don't paraphrase or re-grade it.
+
+## Mergeable suggestions
+
+A ` ```suggestion ` block renders a **"Commit suggestion"** button on the
+PR — the author can apply the fix in one click. Use it whenever the fix
+is a concrete replacement for the exact line(s) the comment is anchored
+to. This is the preferred form; reach for `**Possible Solution:**` prose
+only when a suggestion doesn't qualify.
+
+How GitHub applies a suggestion: the block's contents **replace the
+comment's anchored line range verbatim** — single-line comments replace
+that one line, multi-line comments (`start_line`..`line`) replace that
+whole span. So the suggestion only works when:
+
+1. **It's an inline comment.** Suggestions do nothing in a top-level
+   issue comment — the top-level fallback always uses prose (see "Falling
+   back to a top-level comment").
+2. **The anchored range covers exactly the lines being replaced, and
+   still includes the finding's reported location.** Set the comment's
+   line targeting to span exactly the lines the suggestion rewrites — a
+   single line, or a contiguous `start_line`..`line` range that starts
+   at (or contains) the `file:line` the finding was triaged under. **Don't
+   move the anchor off that reported line** to chase a fix that rewrites
+   different lines: the reported location is what the chat list showed,
+   what the deep-link points at, and what the Pass-1 dedupe matched
+   against — moving it silently desyncs the posted comment from all three.
+   When the fix would touch lines that don't include the finding's
+   location (or sit outside the diff hunk), use prose instead.
+3. **The replacement is exact and complete.** The block holds the full
+   new text for those lines, with **indentation matching the file** (GitHub
+   substitutes it literally — leading whitespace is significant). Include
+   every line in the range, even unchanged ones, since the whole span is
+   replaced.
+
+When in doubt whether a fix is a faithful drop-in (it's pseudo-code, omits
+context, or you're inferring it rather than quoting the panelist), use
+`**Possible Solution:**` prose — a wrong suggestion is worse than a prose
+hint because it looks one-click-safe.
+
+Suggestions compose with everything else: a suggestion comment still
+dedupes against existing automated comments (a match → 👍, no suggestion
+posted) and still sequences HIGH → MEDIUM → LOW.
 
 ## Deduplicating against existing comments
 
@@ -274,6 +339,11 @@ Line targeting:
   the range, not the first — easy to flip and end up commenting on the
   wrong hunk.
 
+When the comment carries a ` ```suggestion ` block, the anchored range
+**must be exactly the lines the suggestion replaces** (single line, or
+`start_line`..`line` for a multi-line rewrite) — GitHub substitutes the
+block for that span. See "Mergeable suggestions".
+
 Sequence the calls HIGH → MEDIUM → LOW (within severity, group by file)
 so the email notifications arrive in priority order. One HTTP call per
 comment.
@@ -303,6 +373,12 @@ then the **same body shape as inline**: finding prose verbatim, an
 optional `**Possible Solution:**` line, and the `Small / Optional polish:`
 prefix for LOW findings.
 
+**A top-level comment can't be a mergeable suggestion** — ` ```suggestion `
+only applies to anchored inline comments. If a finding that would have
+carried a suggestion falls back here, **downgrade it to a
+`**Possible Solution:**` prose line** (describe the same replacement in
+words) rather than emitting a dead suggestion block.
+
 ```markdown
 **Location:** `<path>:<line>` — <blob deep-link URL>
 
@@ -327,7 +403,10 @@ Only available when Linear is reachable from this session — see
   chars.
 - **Description:** include in this order — PR link with the file:line
   deep-link, `File: <path>:<line>`, `Severity: <High|Medium|Low>`, blank
-  line, then the finding body, then the fix line if any.
+  line, then the finding body, then the fix line if any. Write the fix as
+  a `**Possible Solution:**` prose line, **never a ` ```suggestion `
+  block** — suggestions are GitHub-inline-only and render as dead code in
+  a Linear ticket.
 - **Do not set priority.** Triage priority is the issue owner's call,
   not ours.
 - **No severity → priority mapping.** Don't sneak it in as a label
@@ -338,9 +417,13 @@ Only available when Linear is reachable from this session — see
 After posting and filing, report:
 
 - The list of posted comment URLs (one per comment), grouped together
+- Which of those carried a mergeable ` ```suggestion ` block (one-click
+  "Commit suggestion") versus a prose `Possible Solution:` line, so the
+  user knows which can be applied directly
 - Which of those fell back to a top-level comment (because GitHub
   rejected the inline) and why — call these out distinctly so the user
-  knows they're not anchored to the line
+  knows they're not anchored to the line (and that any suggestion was
+  downgraded to prose)
 - **Which findings were deduped against an existing automated comment** —
   for each, the existing comment's `html_url`, the bot that authored it,
   and whether you reacted only (👍) or also replied with extra info. Call
@@ -362,6 +445,13 @@ After posting and filing, report:
 - **One notification per posted comment.** Standalone comments don't
   batch. For very large lists (10+), warn the user before posting so
   they can route some to Linear or drop them instead.
+- **Suggestions are inline-only and anchor-exact.** A ` ```suggestion `
+  block replaces the comment's anchored line range verbatim, so it needs
+  an inline comment whose range matches the lines being rewritten, with
+  indentation matching the file. It can't live in a top-level fallback
+  (downgrade to prose there). When a fix isn't a faithful drop-in, use
+  `**Possible Solution:**` prose — a wrong one-click suggestion is worse
+  than a hint (see "Mergeable suggestions").
 - **Don't auto-detect the PR from the current branch.** Pass the ref
   through from the caller's context.
 - **Dedupe is two passes: detect during triage, act at post time.**
@@ -397,8 +487,9 @@ normally but write:
 - `./triage_transcript.md` — the full finding list (with deep-links),
   the exact option labels shown in each `AskUserQuestion` (so the modal
   text is auditable without an interactive user), and the final
-  disposition per finding (posted to PR / posted as top-level fallback /
-  filed to Linear / dropped / deduped-to-👍 on an existing comment). For
+  disposition per finding (posted to PR — note whether as a mergeable
+  suggestion or prose / posted as top-level fallback / filed to Linear /
+  dropped / deduped-to-👍 on an existing comment). For
   deduped findings, record the matched comment's URL and author. If
   Stage 2 was skipped because Linear wasn't reachable, record that
   explicitly — distinguish from a user-declined Stage 2.
