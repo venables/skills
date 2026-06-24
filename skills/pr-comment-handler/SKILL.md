@@ -1,377 +1,171 @@
 ---
 name: pr-comment-handler
 description: >
-  End-to-end handling of *existing* review comments on a GitHub pull
-  request — read every open thread, decide per comment whether to fix,
-  push back, or defer to a Linear ticket, then drive the work and post
-  the right reply on each thread. Use this skill whenever the user says
-  things like "handle the comments on PR 27", "fix the review comments",
-  "address the PR feedback", "work through the comments on this PR",
-  "respond to the reviewers", "clean up the review comments", or any
-  phrasing that means "go act on what reviewers have already said".
-  Auto-detects the target PR from the current branch when the user does
-  not name one. Different from `post-panel-review-comments` (which posts
-  *new* findings) and from `panel-review` (which generates findings):
-  this skill consumes review comments that already exist and turns them
-  into code changes, replies, and follow-up tickets. Do NOT use when the
-  user wants to *generate* a review (use `panel-review` /
-  `code-reviewer`), or to *post* findings produced elsewhere (use
-  `post-panel-review-comments`).
+  Autonomously work through every open review comment on a GitHub pull
+  request using your own judgment: fix what's valid and relevant, defer
+  worthwhile-but-out-of-scope work to a Linear ticket, and reply to
+  every comment — with the fix, the ticket link, or an honest rationale
+  for not fixing — then resolve the threads you've handled. Use this
+  skill whenever the user says things like "check all the comments on
+  the PR and fix the ones you think are valid", "handle the review
+  comments", "address the PR feedback", "work through the comments and
+  reply to each", "go deal with the reviewers", or any phrasing that
+  means "act on what reviewers already said and leave each thread with
+  an answer". Auto-detects the target PR from the current branch when
+  the user doesn't name one. Different from `panel-review` (which
+  *generates* findings) and `post-panel-review-comments` (which *posts*
+  new findings): this skill *consumes* comments that already exist on
+  the PR. Do NOT use to generate a review or to post findings produced
+  elsewhere.
 ---
 
 # pr-comment-handler
 
-Walks every open review thread on a PR and decides per comment:
+The user is handing you a PR's review inbox and trusting your judgment.
+The job, per their standing instruction:
 
-- **FIX** — change the code, commit it, reply on push with the SHA.
-- **INVALID** — reply now with a short rationale; nothing to change.
-- **DEFER** — file a Linear ticket and reply now with the ticket URL.
+> Check all comments on the PR and fix the items you think are valid and
+> relevant. If a fix is worthwhile but you'd rather defer it to a
+> follow-up, file a Linear ticket for it. Regardless of fixing or not,
+> reply directly to every comment and include the fix, the link to the
+> Linear ticket, or the rationale for not fixing. If you can resolve the
+> comment, resolve it.
 
-The point is the _triage and follow-through_, not the API mechanics.
-The user wants reviewer threads to leave the inbox with a clear answer
-on each one, the right code change landed, and any out-of-scope work
-captured somewhere it will not be forgotten.
+So the contract is simple and you should hold yourself to it:
 
-## Inputs
+- **Every open comment gets a reply.** No thread is left silent.
+- **Each reply carries an answer** — what you fixed (and the commit),
+  the ticket you filed, or why you're not changing anything.
+- **Threads you've handled get resolved.**
 
-1. **PR ref** — usually omitted. Auto-detect from the current branch
-   (`gh pr view --json number,url,headRefName,headRefOid,title,state`).
-   If the user names a PR explicitly ("handle the comments on PR 27",
-   a `github.com/.../pull/N` URL), use that and skip auto-detect.
+Everything else — which comments deserve a fix, what the fix is, what's
+out of scope, when something is just wrong — is yours to decide. You
+read PRs all day; don't ask the user to re-adjudicate what you can judge
+yourself. Act, then report what you did.
 
-   If auto-detect fails (no PR for this branch, or multiple), ask the
-   user once which PR — don't guess.
+## What you're working with
 
-2. **Working tree** — assume the user is on the PR's head branch with a
-   clean working tree. If `git status --porcelain` shows uncommitted
-   changes or `git branch --show-current` ≠ PR head ref, **stop and
-   tell the user** before doing anything. Don't auto-stash, don't auto
-   `gh pr checkout` — both can quietly discard work.
+Fetching the comments is the one fiddly part, so a script handles it.
+Everything else is a plain `gh` call you can run inline.
 
-3. **Linear team + project** (only when needed) — ask once, the first
-   time a DEFER lands. Reuse for every later DEFER in the same session.
-   Don't re-ask per comment.
+**Fetch** — `scripts/fetch_pr_comments.sh <pr>` emits every open thread +
+any review summary bodies as one JSON document. (It exists because the
+REST endpoint doesn't expose per-thread `isResolved`, so the script runs
+a GraphQL query and shapes the result.) Resolved and outdated threads are
+dropped by default — usually noise; `--include-resolved` /
+`--include-outdated` if you need them. Read its header for the full shape.
 
-## Workflow
+Each comment in that output carries a `database_id` (numeric) and a
+`node_id`; each thread carries a `thread_id`. It also flags `is_bot`
+authors as a hint — but a bot comment is sometimes the sharpest one in
+the thread, so weigh it on content, not author.
 
-### 1. Resolve the PR, sanity-check, fetch comments
+**Reply** to a thread (inline, so newlines/markdown survive — `gh`
+fills `{owner}/{repo}` from the current repo):
 
-Run `gh pr view` to confirm the PR and surface it to the user before
-doing any work:
-
-```
-PR #N: <title> — <url>
-```
-
-Cheap sanity check that you're aimed at the right thing. If they
-expected a different PR they'll say so now, not after you've made
-commits.
-
-Verify the branch state (current branch, no uncommitted changes). Bail
-if not — see "Inputs" above.
-
-Then fetch every open thread plus any review summary bodies with
-`scripts/fetch_pr_comments.sh <pr-ref>`. Default behavior already drops
-resolved and outdated threads — that filtering is intentional, those
-are usually noise.
-
-The script emits one JSON document; see its header for the shape. Two
-things you'll keep using:
-
-- Each comment has both a GraphQL `node_id` and a numeric `database_id`.
-  Replies via REST need `database_id`. Tracking state across the
-  session, prefer `node_id` (stable, unambiguous).
-- `is_bot: true` flags author logins like `coderabbitai`, `copilot-...`,
-  `[bot]` suffixes. Treat as a hint, not a verdict — sometimes a bot
-  comment is the most useful one in the thread.
-
-### 2. Classify each comment
-
-The default is to **auto-classify** with high confidence and only ask
-the user about ambiguous ones. That keeps the loop fast on the common
-case where most comments are obvious.
-
-For each thread, read:
-
-- The original comment body (the first comment in the thread).
-- Any replies — especially replies from the PR author. If the author
-  already said "fixed in <sha>" or "addressed", the thread is probably
-  closeable but wasn't resolved on the UI. Default to INVALID and say
-  so in your reply.
-- The file at `path:line` (or the diff hunk if `is_outdated`). The code
-  often moots the comment by itself.
-
-Then assign one of:
-
-**FIX** — the comment points at a real, current issue and the change
-is in scope. Most comments land here.
-
-**INVALID** — the comment is wrong, stale, or already addressed. Common
-shapes: "use the helper at X" but X doesn't exist; "this is O(n²)" on
-code where n is bounded to 3; reviewer misread the diff; the suggestion
-is already in a later commit.
-
-**DEFER** — the comment is a valid improvement but explicitly or
-obviously out of scope for this PR. Common shapes: "we should also
-refactor Y", "add a metric for this", "follow-up: write a migration
-guide", new feature requests piggy-backed on a bug fix. Reviewers
-phrasing it as "follow-up", "in a future PR", "not blocking" is a
-strong DEFER signal.
-
-**ASK** — anything you're not sure about. Don't guess on the user's
-behalf; the cost of a wrong fix is higher than the cost of one question.
-
-Be conservative. When the comment is short, vague, or could mean two
-things, mark it ASK — the user reads PRs in their own voice and will
-classify in seconds what would take you several tool calls to verify.
-
-### 3. Show the triage plan, confirm
-
-Before executing, print a compact plan grouped by classification:
-
-```
-Triage plan for PR #N (<title>):
-
-FIX (3):
-  - src/auth.ts:42  @alice  "extract this into a helper"
-  - src/auth.ts:88  @alice  "missing null check on session"
-  - tests/auth.test.ts:12  @bob  "add a case for expired tokens"
-
-INVALID (1):
-  - src/auth.ts:14  @alice  "use the existing X helper"
-    Rationale: X was removed in commit abc123; the inline version is
-    intentional.
-
-DEFER (1):
-  - README.md:1  @bob  "we should document the new env var"
-    Rationale: docs land in the follow-up PR per the description.
-
-ASK (1):
-  - src/auth.ts:99  @alice  "is this still needed?"
+```bash
+gh api --method POST \
+  "repos/{owner}/{repo}/pulls/<pr>/comments/<parent.database_id>/replies" \
+  -f body="$(cat <<'EOF'
+Fixed in abc1234 — extracted the shared helper.
+EOF
+)"
 ```
 
-For ASK items, prompt the user one at a time with `AskUserQuestion`
-offering Fix / Invalid / Defer / Skip. Use the same self-contained
-question text pattern as `post-panel-review-comments`: include
-panelist + path:line + body verbatim so the modal stands alone.
+**Resolve** a handled thread (same as the UI button — needs the
+`thread_id`, not a comment id):
 
-Once ASKs are resolved, also give the user a chance to flip any of the
-auto-classified items before execution — e.g. "actually defer the
-extract-helper one, that's a bigger change than it looks". Treat a
-flat "looks good" / "go" as approval.
-
-### 4. Execute
-
-Walk approved items in this order. The order matters: DEFER and INVALID
-both post replies during this phase, so the user sees Linear tickets
-appear and reviewer threads light up _before_ any code commits — useful
-signal that something is wrong if a Linear write fails.
-
-#### DEFER first
-
-The first time you hit a DEFER, ask the user **once** which Linear team
-and project tickets should land in. Reuse for every later DEFER.
-
-For each DEFER:
-
-1. Create a Linear issue via the Linear MCP (`save_issue` or similar
-   in your tool list).
-   - **Title:** one-line summary of the follow-up; under ~80 chars.
-   - **Description:** include in this order — link to the PR comment
-     (the comment's `url` field), `File: <path>:<line>` if the comment
-     is inline, blank line, then the reviewer's body verbatim.
-   - **Do not set priority.** Triage priority is the issue owner's
-     call. The user was explicit about this.
-   - No severity → priority mapping. No sneaky label workarounds.
-
-2. Post a reply on the PR comment via
-   `scripts/post_reply.sh <pr-ref> <parent.database_id> -` (body on
-   stdin so newlines survive). Body shape:
-
-   ```
-   Deferring to follow-up: <linear-url>
-
-   <one-sentence rationale, e.g. "out of scope for this fix; the auth
-   refactor lands in its own PR.">
-   ```
-
-   Keep the rationale honest and short. Reviewers can tell when they're
-   being brushed off.
-
-#### INVALID next
-
-For each INVALID, post a reply on the parent comment with a short
-rationale. Body shape:
-
-```
-Not making this change: <one or two sentence rationale>.
+```bash
+gh api graphql -F threadId="<thread_id>" -f query='
+  mutation($threadId: ID!) {
+    resolveReviewThread(input: { threadId: $threadId }) {
+      thread { isResolved }
+    }
+  }'
 ```
 
-If the rationale needs file references, include them. Don't apologize,
-don't pad. Reviewers respect a clear "no, because X" more than a
-hedged maybe.
+## How to work
 
-#### FIX last
+1. **Find the PR.** Usually unstated — auto-detect from the branch
+   (`gh pr view --json number,url,title,headRefName,state`). If the user
+   named one, use it. If detection is ambiguous (no PR, or several), ask
+   once rather than guessing. Confirm you're on the PR's head branch with
+   a clean tree before you start changing code — if not, stop and say so
+   rather than stashing or checking out on the user's behalf, which can
+   silently lose work.
 
-For each FIX, in order (smallest/lowest-risk first when several touch
-the same file — reduces merge conflicts mid-loop):
+2. **Read every thread and decide.** For each, read the comment, any
+   replies (if the author already said "fixed in <sha>", it's likely
+   moot — say so and resolve), and the actual code at `path:line`. The
+   code often settles it. Then pick the path that's true, not the one
+   that's least work:
+   - **Fix it** when the comment points at a real, in-scope problem.
+     Follow the _spirit_ of the comment — reviewers locate problems more
+     reliably than they prescribe solutions.
+   - **Defer it** when the fix is genuinely worth doing but doesn't
+     belong in this PR (a broader refactor, a follow-up feature, a
+     piggy-backed "we should also..."). File a Linear ticket so it isn't
+     lost.
+   - **Decline it** when the comment is wrong, stale, or already handled.
+     A clear "no, because X" respects the reviewer more than a silent
+     non-fix or a hedge.
 
-1. Read the file. Make the change. If the comment was vague about the
-   exact fix, follow the _spirit_ of the comment, not a literal reading
-   — reviewers point at problems more reliably than they prescribe
-   solutions.
-2. Run quick correctness checks if the project has them — typecheck,
-   the most relevant test file. Don't run the full test suite per fix;
-   that's what the push-time decision step is for.
-3. Commit with conventional-commit form, one commit per comment fixed:
+3. **Make the fixes and push.** Commit each fix on its own — one logical
+   change per commit, conventional-commit form, scope matching the repo's
+   `git log` convention. Reference the comment in the body. Then push, so
+   your reply can point at a real, fetchable SHA. The user wants this run
+   autonomously: commit and push without a checkpoint unless they asked
+   you to hold. Run cheap correctness checks (typecheck, the nearest test
+   file) as you go; you don't need the full suite per fix.
 
-   ```
-   fix(<scope>): <one-line description>
+4. **Reply to every comment**, then resolve the thread:
+   - _Fixed:_ `Fixed in <short-sha> — <what you actually did>.` The short
+     SHA is a clickable link in GitHub; the summary tells the reviewer
+     whether your fix matches their intent without opening the diff.
+   - _Deferred:_ link the Linear ticket and give a one-line reason it's a
+     follow-up. Keep it honest — reviewers can tell when they're being
+     brushed off.
+   - _Declined:_ one or two sentences of real rationale, with file
+     references if they help.
 
-   Addresses review comment from @<author> on <path>:<line>.
-   <comment URL>
-   ```
+   After replying, resolve the thread (the GraphQL mutation above). If a
+   reply fails
+   (parent deleted, PR closed mid-run), surface the comment URL and the
+   text you tried to post so the user can finish it by hand, and keep
+   going with the rest.
 
-   `<scope>` follows the project's existing convention from
-   `git log --oneline` (often the directory or feature area). If
-   there's no consistent scope, drop the parens.
+5. **Report back** — a short summary: counts of fixed / deferred /
+   declined, the commit range you pushed, the Linear links you filed, and
+   anything that errored and needs a human.
 
-4. **Track**: `{comment_database_id, sha, one_line_summary}` for the
-   push-time reply. Keep this in conversation state — TodoWrite is a
-   good place because it survives if the user side-tracks for an
-   unrelated question.
+## Linear tickets (for deferrals)
 
-   `sha` is the commit SHA you just produced (`git rev-parse HEAD`),
-   not the PR's head SHA at fetch time. Truncate to 7 chars for the
-   reply text; keep the full SHA internally in case you need it.
+The first time you defer, ask once which Linear team and project tickets
+should land in, then reuse that for the rest of the session — don't
+re-ask per comment. Each ticket:
 
-   `one_line_summary` is _what you did_, not what the reviewer asked
-   for. "Extracted shared helper" beats "addressed the helper comment".
+- **Title:** one-line summary of the follow-up.
+- **Description:** the PR comment's URL, then `File: <path>:<line>` if
+  inline, a blank line, then the reviewer's body verbatim.
+- **No priority, no severity-to-priority mapping, no label workaround.**
+  Triage is the receiving team's call — the user is firm on this.
 
-Do not push yet. The user explicitly wants a checkpoint before code
-goes upstream.
+If the Linear MCP isn't available, you can still fix and decline; tell
+the user which comments you'd have deferred so they can file them.
 
-### 5. Checkpoint: push, or run something locally first
+## Worth knowing
 
-After all FIX commits land, summarize and ask:
-
-```
-Local commits: 3 (sha1, sha2, sha3)
-Replied to 1 INVALID, deferred 1 to LIN-NNN.
-
-Push now, or run something locally first?
-```
-
-Offer concrete options via `AskUserQuestion`:
-
-- **Push now** — `git push`, then post fix-replies on each FIX comment.
-- **Run panel-review first** — invoke the `panel-review` skill on the
-  unpushed work, then come back to this checkpoint.
-- **Run tests / typecheck** — full suite, not the per-commit smoke
-  check. Project-specific.
-- **Hold** — user wants to inspect manually before deciding.
-
-If the user picks one of the deferred actions, do that, then come
-_back_ to the checkpoint. The fix-reply phase runs only once, after
-the user has actually said "push".
-
-### 6. Push and post fix-replies
-
-When the user says push:
-
-1. `git push` (the branch already exists upstream — the PR head — so
-   no `-u`/`--set-upstream` needed; if that turns out wrong, surface
-   the error).
-
-2. For each tracked FIX entry, post a reply via `scripts/post_reply.sh`:
-
-   ```
-   Fixed in <short-sha> — <one_line_summary>.
-   ```
-
-   That's the whole reply. The short SHA is a clickable link in
-   GitHub's UI; the summary tells the reviewer whether your fix
-   matches what they asked for without making them open the diff.
-
-3. If a reply fails (typically: parent comment was deleted, or the
-   PR was closed mid-loop), surface the error with the comment URL and
-   the body you tried to post, so the user can paste it manually. Keep
-   going with the other replies — one failure shouldn't block the rest.
-
-### 7. Report back
-
-Final summary, single block:
-
-```
-PR #N <url>
-
-Fixed:    3 (replies posted on N commits)
-Invalid:  1 reply
-Deferred: 1 → <linear-url>
-Skipped:  0
-
-Push: <commit-range-url>
-```
-
-If anything errored, list the affected comment URLs at the bottom so
-the user can finish them manually.
-
-## Gotchas
-
-- **Replying needs `database_id`, not GraphQL `node_id`.**
-  `fetch_pr_comments.sh` exposes both for exactly this reason. Mixing
-  them up gets you a 404 from the replies endpoint.
-
-- **Review summary bodies don't have a "reply" API.** The replies
-  endpoint is for inline comments only. If a _review_ (not an inline
-  thread) needs a response, post a top-level PR comment that quotes
-  the relevant sentence and addresses it — or, if the review is mostly
-  a recap of inline threads you've already answered, you can skip
-  responding to the summary itself.
-
-- **Don't `gh pr checkout` on the user's behalf.** It will silently
-  blow away uncommitted work. Bail and let the user resolve.
-
-- **Don't auto-stash either.** Same reason. Stashes are easy to forget;
-  the user's work should stay where they put it.
-
-- **Don't push without the checkpoint.** Even if the user said "go fix
-  the comments" in their initial message, treat that as authorization
-  for the local work, not the push. The push step is its own decision.
-
-- **One commit per comment, not per file.** Even when several comments
-  touch the same file, separate commits keep revert granularity per
-  comment and let the fix-reply on push reference exactly the SHA that
-  fixed that comment. (User preference, recorded in CLAUDE.md.)
-
-- **Don't paraphrase the reviewer's comment when showing it to the
-  user during triage.** They need the raw text to classify it the way
-  they'd classify it themselves. Paraphrasing in your summary is fine
-  for the _plan_ view; classification still reads the original body.
-
-- **Linear tickets get no priority.** Setting priority is the
-  receiving team's call. No mapping from severity or reviewer
-  insistence to priority. No labels as a workaround.
-
-- **`panel-review` and `post-panel-review-comments` are siblings, not
-  alternatives.** If the user already ran a panel-review and has a list
-  of _new_ findings to post, that's `post-panel-review-comments`. This skill
-  is the _inverse_ flow: comments already exist on the PR and need to
-  be acted on. Don't get them tangled.
-
-## Dry-run mode
-
-If the user asks for a dry run ("don't actually push", "show me what
-you'd do") or sets `PR_COMMENT_HANDLER_DRY_RUN=1`, do everything up
-through staging changes locally, but:
-
-- Don't `git push`.
-- Don't post any replies. Write what _would_ have been posted to
-  `./pr_comment_handler_replies.json` — array of
-  `{comment_url, parent_database_id, body, kind: "invalid"|"defer"|"fix"}`.
-- Don't create Linear tickets. Write what would have been created to
-  `./pr_comment_handler_linear.json` — array of
-  `{team, project, title, description}`.
-- Still make the local code commits — the user can `git reset --hard`
-  to undo if they want. Document the resulting SHA range in the final
-  summary.
+- **Replies use `database_id`; resolves use `thread_id`.** Mixing them up
+  gets a 404. The fetch output keeps them distinct for this reason.
+- **Review _summary_ bodies have no reply API** — only inline threads do.
+  If a reviewer left actionable feedback in a review summary, respond with
+  a top-level PR comment that quotes the relevant part. If the summary
+  just recaps inline threads you've already answered, you can skip it.
+- **Don't `gh pr checkout` or auto-stash.** Both can quietly discard the
+  user's uncommitted work. Bail and let them sort it out instead.
+- **One commit per comment**, even when several touch the same file —
+  keeps revert granularity per comment and lets each reply name the exact
+  SHA that fixed it.
+- **Resolve only what you genuinely handled.** Don't resolve a thread you
+  declined if you think the reviewer may reasonably push back — leave that
+  one open after replying so they can respond.
