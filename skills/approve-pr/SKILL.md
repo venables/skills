@@ -10,7 +10,10 @@ description: >
   LGTM or a single silly emoji (cowboy, ship-it, rocket, etc.) as the
   only text. When the user supplies a message, use it verbatim as the
   approval body. Auto-detects the target PR from the current branch when
-  the user does not name one. Do NOT use to *request changes* or leave a
+  the user does not name one. After approving, if Slack MCP is available,
+  finds the review-request message for this PR in the #dev channel, adds
+  a ✅ reaction to it, and removes the user's own 👀 reaction if present.
+  Do NOT use to *request changes* or leave a
   non-approving review (use a plain `gh pr review` / the PR comment
   skills), to *generate* a review (`panel-review`), or to act on existing
   review comments (`pr-comment-handler`).
@@ -86,13 +89,68 @@ gh pr review <ref> --approve --body "<body>"
 Omit `<ref>` to let `gh` resolve the current branch's PR, or pass the
 number / URL when the user named one.
 
-### 4. Report back
+### 4. React to the Slack review request (if Slack MCP is present)
+
+Reviews are often requested by dropping the PR link in the **#dev**
+channel. After approving, close that loop by adding a ✅ reaction to the
+request message. This step is best-effort — it never blocks or undoes
+the approval.
+
+Skip the whole step silently when the Slack MCP tools (e.g.
+`slack_search_public_and_private`, `slack_add_reaction`) are not
+available in the session.
+
+1. **Find the message.** Search for the PR URL scoped to #dev only —
+   e.g. query `"<pr-url>" in:#dev` — or read recent #dev history and
+   look for the link. Never look in any other channel, and never match
+   on just the PR number or title; require the actual PR link.
+
+2. **Confirm it's a review request.** The message must be _asking for a
+   review_ — typically a short description of the PR plus the link
+   ("Adds retry logic to the webhook worker: <url>", "can someone take a
+   look at <url>"). Do **not** react to messages that merely mention the
+   PR: questions about it ("is <url> why staging is broken?"), status
+   updates, bot notifications, or general discussion. When in doubt,
+   don't react.
+
+3. **Handle multi-PR messages.** If the request message contains links
+   to several PRs, only react when **all** of them are approved. Check
+   each other PR with `gh pr view <url> --json reviewDecision,state` —
+   count a PR as done when `reviewDecision` is `APPROVED` or it's
+   already `MERGED`. If any PR in the message is still unapproved, add
+   no reaction (a partial ✅ would falsely signal the whole batch is
+   reviewed).
+
+4. **React.** Add a `white_check_mark` reaction to the message via
+   `slack_add_reaction`. If Slack reports you already reacted, that's
+   fine — nothing to do.
+
+5. **Clear your 👀.** The current user often marks "I'm looking at
+   this" with an `eyes` reaction. Once the ✅ has been added, check the
+   message's reactions (`slack_get_reactions`) and, if the current user
+   has an `eyes` reaction on it, remove it — ✅ replaces 👀. This only
+   applies when the ✅ actually went on: if a multi-PR message was left
+   un-reacted (step 3), leave the 👀 alone too — the review of the batch
+   isn't done. Use the reaction-removal tool if the Slack MCP provides
+   one; if
+   it doesn't, leave the 👀 in place and mention that in the report.
+   Only ever remove the current user's own `eyes` reaction — never
+   anyone else's, and never any other emoji.
+
+If no matching message exists in #dev, just move on; most PRs won't
+have one.
+
+### 5. Report back
 
 One line, with the PR link and the body you used:
 
 ```
 Approved PR #N <url> with "<body>".
 ```
+
+If you also reacted in Slack, append a short note (e.g. "Added ✅ to the
+review request in #dev."). If a multi-PR message was found but left
+un-reacted, say which PRs are still awaiting approval.
 
 ## Gotchas
 
@@ -121,3 +179,19 @@ request`). If `author` from step 1 is the current user, don't even try
   approve, that's authorization — but still surface the PR (step 1)
   first so a wrong auto-detect is caught before the notification goes
   out.
+
+- **Slack step is #dev-only and best-effort.** Never search or react in
+  any channel other than #dev, and never let a Slack failure (missing
+  MCP, search error, channel not found) change the outcome of the
+  approval — the approval already happened; just skip the reaction and
+  report normally.
+
+- **The ✅ means "this batch is fully reviewed".** On a multi-PR request
+  message the reaction is all-or-nothing: every linked PR must be
+  approved (or merged) before reacting. Don't react "for your PR's
+  share" of the message.
+
+- **Review requests only.** A Slack message containing the PR link is
+  not automatically a review request. If it reads as a question, an
+  incident thread, a deploy notice, or bot output, leave it alone — a ✅
+  on those messages would answer a question nobody asked.
