@@ -112,8 +112,9 @@ panel_approach() { local i; i="$(panel_index "$1")" || return 1; printf '%s' "${
 validate_approach() {
   local a="$1" ctx="$2"
   # Constrain to a safe basename: no '/' means the value can never traverse out
-  # of $APPROACHES_DIR (line ~819 cat) or smuggle a path separator into the
-  # panelist id (register_panelist) it's later folded into.
+  # of $APPROACHES_DIR (the `cat "$APPROACHES_DIR/$approach.md"` in build_argv) or
+  # smuggle a path separator into the panelist id (register_panelist) it's later
+  # folded into.
   [[ "$a" =~ ^[A-Za-z0-9._-]+$ ]] || \
     die "invalid approach '$a'${ctx:+ in $ctx} (allowed: letters, numbers, . _ -)"
   [[ -f "$APPROACHES_DIR/$a.md" ]] || die "unknown approach '$a'${ctx:+ in $ctx} (no prompts/approaches/$a.md)"
@@ -261,6 +262,11 @@ Environment:
                           Cap inline diff size (default 200000). Only applies to
                           diff-embed targets (uncommitted/staged/base/commit). PR
                           mode does not embed the diff and is not subject to this cap.
+  PANEL_REVIEW_POLL_GRACE_SECS
+                          Extra seconds beyond a panelist's --timeout before the
+                          poll loop's wall-clock backstop force-fails a panelist
+                          that never wrote a result (default 120). Covers anyagent
+                          startup + teardown; raise it on slow machines.
 
 Exit codes:
   0  every panelist returned successfully
@@ -824,7 +830,15 @@ build_argv() {
     panel_cwd="$PWD"
     argv+=(--cwd "$panel_cwd" "$(readonly_flag "$backend")")
   fi
-  argv+=(-- "$prompt")
+
+  # Feed the prompt on stdin, not as a positional argv element. A large embedded
+  # diff can push the prompt past Linux's per-argument cap (MAX_ARG_STRLEN, 128KB)
+  # and make exec fail with E2BIG (macOS has no such per-arg cap, which hides it
+  # locally). anyagent reads the prompt from stdin when no positional prompt is
+  # given, and stdin has no size limit — so we write it to a file the fan-out
+  # redirects into the child's stdin, and pass NO prompt in argv.
+  printf '%s' "$prompt" > "$OUT_DIR/$id.prompt" \
+    || die "failed to write prompt file for panelist '$id' ($OUT_DIR/$id.prompt)"
   return 0
 }
 
@@ -856,11 +870,27 @@ for p in "${PANEL_IDS[@]}"; do
 
   panel_cwd="$PWD"
   (( CHECKOUT_MODE )) && panel_cwd="$OUT_DIR/worktree-$p"
-  # anyagent gets the working dir via --cwd (set in build_argv), so no `cd` here.
-  # stdin from /dev/null so any backend that waits on an open stdin proceeds.
-  ( "${argv[@]}" </dev/null >"$out" 2>"$err"; echo $? >"$rc" ) &
-  PIDS+=($!)
-  echo "panel-review: ${p} started (pid=$!, cwd=$panel_cwd)" >&2
+  # anyagent gets the working dir via --cwd (set in build_argv) and the prompt on
+  # stdin from the per-panelist prompt file (see build_argv). The child (anyagent)
+  # consumes that stdin itself; the backend it drives gets a null/PTY stdin, so a
+  # backend that waits on an open stdin still proceeds.
+  #
+  # anyagent runs as an inner background job so we can record ITS pid ($p.apid)
+  # and, on the wall-clock backstop, signal it directly: anyagent traps SIGTERM
+  # and tears down its own backend process group, whereas TERMing only the wrapper
+  # subshell would orphan a wedged anyagent + backend. The rc is written
+  # atomically (tmp + mv) so the poll loop can never read or clobber a
+  # half-written rc.
+  ( "${argv[@]}" <"$OUT_DIR/$p.prompt" >"$out" 2>"$err" & apid=$!
+    echo "$apid" >"$OUT_DIR/$p.apid"
+    wait "$apid"; ec=$?
+    echo "$ec" >"$OUT_DIR/$p.rc.tmp" && mv -f "$OUT_DIR/$p.rc.tmp" "$OUT_DIR/$p.rc" ) &
+  child=$!
+  PIDS+=("$child")
+  # Record the wrapper pid so the poll loop can detect a panelist whose wrapper
+  # died without writing its .rc (SIGKILL/OOM) and not wait on it forever.
+  echo "$child" >"$OUT_DIR/$p.pid"
+  echo "panel-review: ${p} started (pid=$child, cwd=$panel_cwd)" >&2
 done
 
 # ----- Stream combined results as each panelist finishes -----
@@ -930,11 +960,21 @@ panelist_error_reason() {
   local errf="$OUT_DIR/$p.err"
   local reason=""
   if [[ "$rc_val" == "124" ]]; then
-    reason="timed out (anyagent --timeout ${TIMEOUT_SECS}s)"
+    reason="timed out (anyagent --timeout ${TIMEOUT_SECS}s, or orchestrator wall-clock backstop)"
   fi
+  # Prefer the panelist's own stderr tail — anyagent prints `anyagent: <error>` on
+  # failure, which is more specific than any exit-code guess.
   if [[ -z "$reason" && -s "$errf" ]]; then
     reason="$(strip_ansi <"$errf" 2>/dev/null | grep -v '^[[:space:]]*$' \
               | tail -n1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  fi
+  # Exit-code fallback only when stderr was empty (e.g. a hard kill left nothing).
+  # Many signals collapse onto 137/143 here, so keep these generic.
+  if [[ -z "$reason" ]]; then
+    case "$rc_val" in
+      137)     reason="wrapper exited without a result (signal/OOM?)" ;;
+      143|130) reason="terminated by a signal before finishing" ;;
+    esac
   fi
   printf '%s' "${reason:-no output and no error detail captured}"
 }
@@ -1004,6 +1044,14 @@ print_section() {
 PRINTED=()
 TOTAL=${#PANEL_IDS[@]}
 DONE_COUNT=0
+# Wall-clock backstop for the poll loop. A panelist is normally "done" when its
+# child subshell writes .rc. Without the old external `timeout` wrapper, two edge
+# cases could otherwise hang this loop forever: the subshell being SIGKILLed
+# before it writes .rc, or anyagent wedging past its own --timeout. anyagent caps
+# each panelist at TIMEOUT_SECS; the grace (PANEL_REVIEW_POLL_GRACE_SECS, default
+# 120) covers its startup + teardown across parallel panelists. `SECONDS` is
+# bash's seconds-since-start counter.
+POLL_DEADLINE=$(( SECONDS + TIMEOUT_SECS + ${PANEL_REVIEW_POLL_GRACE_SECS:-120} ))
 while (( DONE_COUNT < TOTAL )); do
   for p in "${PANEL_IDS[@]}"; do
     is_printed=0
@@ -1013,7 +1061,36 @@ while (( DONE_COUNT < TOTAL )); do
       done
     fi
     (( is_printed )) && continue
-    [[ -s "$OUT_DIR/$p.rc" ]] || continue
+    if [[ ! -s "$OUT_DIR/$p.rc" ]]; then
+      # No result yet. The wrapper writes .rc atomically as its final act, so an
+      # absent .rc means the wrapper hasn't finished — which pins down both edge
+      # cases below race-free: an alive wrapper implies its recorded pids are
+      # still valid (no recycled-pid signal), and a dead wrapper's .rc state is
+      # final (no clobber). Synthesize a failure rc if the wrapper vanished
+      # without writing one, or if the wall-clock deadline passed; else wait.
+      ppid=""
+      [[ -s "$OUT_DIR/$p.pid" ]] && ppid="$(cat "$OUT_DIR/$p.pid" 2>/dev/null || true)"
+      if [[ -n "$ppid" ]] && ! kill -0 "$ppid" 2>/dev/null; then
+        # Wrapper fully exited; its .rc is now in final state.
+        [[ -s "$OUT_DIR/$p.rc" ]] || echo "137" >"$OUT_DIR/$p.rc"   # gone without a result (SIGKILL/OOM)
+      elif (( SECONDS > POLL_DEADLINE )); then
+        # Deadline passed with the wrapper still alive. TERM the anyagent child
+        # (it tears down its backend group), then the wrapper, and synthesize a
+        # 124 only if no real rc landed in the meantime.
+        apid=""
+        [[ -s "$OUT_DIR/$p.apid" ]] && apid="$(cat "$OUT_DIR/$p.apid" 2>/dev/null || true)"
+        # TERM anyagent so it tears down its own backend group, then hard-kill the
+        # wrapper (our own subshell) so it can no longer publish a competing .rc.
+        # That makes the synthetic 124 the single, deterministic writer — the only
+        # way .rc is non-empty here is a real code the wrapper wrote just before
+        # the kill, which we keep.
+        [[ -n "$apid" ]] && kill -TERM "$apid" 2>/dev/null || true
+        kill -KILL "$ppid" 2>/dev/null || true
+        [[ -s "$OUT_DIR/$p.rc" ]] || echo "124" >"$OUT_DIR/$p.rc"   # orchestrator wall-clock exceeded
+      else
+        continue
+      fi
+    fi
     print_section "$p"
     PRINTED+=("$p")
     DONE_COUNT=$((DONE_COUNT + 1))
