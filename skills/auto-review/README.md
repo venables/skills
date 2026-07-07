@@ -38,7 +38,7 @@ On a PR (or its branch), ask:
 
 Approval also requires that the invocation asked for it (see step 3 above); a post-only/ambiguous request skips this gate entirely. When approval was requested, it approves **only when every one** of these holds:
 
-- **Full coverage** — every panelist that launched returned a verdict (`exit 0`). A panelist that crashed/timed out (e.g. the flaky `database is locked`) is missing coverage → no approval.
+- **Reviewer coverage — ≥ 75% of the panel returned** — at least 75% of the launched panelists returned a verdict (`exit 0`), and the ≥2 floor below holds. One panelist crashing/timing out (e.g. the flaky `database is locked`) in a four-panel run (3/4) still clears this as long as the returning reviewers are clean; dropping below 75% (2/4, 2/3, 1/2) does not → no approval.
 - **Enough independent reviewers — at least two, not narrowed** — a hard floor of ≥2 distinct panelists returning `exit 0` (one opinion is never enough — even if it's the only CLI installed on the host), and the panel wasn't narrowed below `panel-review`'s default via `--panelist`. A single-reviewer run is too thin to auto-stamp.
 - **No blocking findings** — zero must-fix (CRITICAL/HIGH) and zero should-fix (MEDIUM); only polish (LOW) findings, or none.
 - **Sound approach** — no substantiated `Approach (questionable)` flag.
@@ -61,11 +61,11 @@ Handed to `approve-pr` verbatim (so it adds no emoji of its own).
 
 - **No reimplementation.** It composes `panel-review`, `auto-post-panel-review-comments`, and `approve-pr`; all their mechanics live in those skills.
 - **No blocking reviews.** It only ever approves (when clean); it never submits `request-changes`.
-- **No approval without coverage.** A lost panelist or a narrowed panel blocks the stamp even if the findings are all LOW. Draft PRs, your own PRs, a head that moved mid-review, and post-only requests are also withheld (non-finding reasons).
+- **No approval without coverage.** Coverage falling below 75% of the launched panel (or below the ≥2 floor), or a narrowed panel, blocks the stamp even if the findings are all LOW. Draft PRs, your own PRs, a head that moved mid-review, and post-only requests are also withheld (non-finding reasons).
 
 ## Gotchas
 
 - **It targets a PR.** If the review runs against a non-PR target (`--uncommitted`, `--base`), there's nothing to post to or approve — it reports the review and stops.
-- **A lost panelist blocks approval.** Missing coverage is not a clean bill of health; comments still post, approval is withheld, and the report names the missing panelist.
+- **Coverage below 75% blocks approval.** Losing one of four panelists (3/4) still allows a clean approval; falling below 75% of the launched panel is not a clean bill of health — comments still post, approval is withheld, and the report names the missing panelist.
 - **Same PR throughout.** The PR is resolved once and reused for review, posting, and approval.
 - **Different from its parts.** [`panel-review`](https://github.com/catena-labs/dev-skills/tree/main/skills/panel-review) only reviews; [`auto-post-panel-review-comments`](../auto-post-panel-review-comments) only posts; [`panel-review-loop`](../panel-review-loop) iterates fix-and-rereview; [`approve-pr`](../approve-pr) only approves. `auto-review` is the one-pass review → post → maybe-approve composition.

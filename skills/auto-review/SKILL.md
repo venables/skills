@@ -5,8 +5,8 @@ description: >
   `panel-review` skill (called as-is, kept separate), then runs the
   `auto-post-panel-review-comments` flow to post the legitimate findings
   straight to the PR, then — only when the PR comes back clean enough
-  (every panelist returned and the findings are LOW/polish only, no
-  must-fix or should-fix, approach sound) — approves the PR via
+  (at least 75% of the panel returned and the findings are LOW/polish
+  only, no must-fix or should-fix, approach sound) — approves the PR via
   `approve-pr` with a short LGTM-style body. The approval step only runs
   when the invocation actually asks for it — "auto-review this PR", "auto
   review", "review it and approve if it's clean", "review, comment, and
@@ -101,12 +101,14 @@ Capture two things for later steps:
   and a `## <name> / <model> (exit N)` section header in its combined
   output. `exit 0` (including a `NO_FINDINGS` verdict) counts as
   **returned**; a non-zero exit (crash, timeout, the flaky `database is
-locked`, etc.) counts as **missing**. **Cross-check the count**: the
-  number of `exit 0` panelists must equal the number launched. If you
-  can't establish per-panelist exit status for every launched panelist
-  (e.g. the output was truncated), treat coverage as **not** established
-  and don't approve — never infer a clean full run from the synthesis
-  alone. Coverage is the gate's central safety property.
+locked`, etc.) counts as **missing**. **Cross-check the count**: record
+  how many panelists returned `exit 0` out of how many launched — approval
+  needs ≥ 75% of the launched set (see gate #1), so you must know both
+  numbers, not just that "some" returned. If you can't establish
+  per-panelist exit status for every launched panelist (e.g. the output was
+  truncated), treat coverage as **not** established and don't approve —
+  never infer coverage from the synthesis alone. Coverage is the gate's
+  central safety property.
 - **The synthesized findings** — the buckets and the approach verdict.
 
 ### 2. Post — run `auto-post-panel-review-comments`
@@ -165,13 +167,23 @@ failed).
 Approve **only if every one** of these holds. If any fails, post the
 comments (step 2 already did) and stop without approving.
 
-1. **Full reviewer coverage.** Every panelist that was launched **returned
-   a verdict** (`exit 0`) — concretely, `count(exit 0) == count(launched)`.
-   Any non-zero exit (crash, timeout) fails this condition; "returned a
-   verdict" means a clean exit, not merely "produced some output." If any
-   panelist failed/timed out, you don't have the coverage the approval
-   implies — **don't approve.** (A run that silently lost a panelist is not
-   a clean run.)
+1. **Reviewer coverage — ≥ 75% of the panel returned.** At least **75% of
+   the launched panelists returned a verdict** (`exit 0`) — concretely,
+   `count(exit 0) >= ceil(0.75 × count(launched))` — **and** the hard floor
+   in #2 (≥ 2 returned) holds. One panelist dropping out of a four-panel
+   run (3/4 = 75%) still clears this, provided the returning reviewers are
+   clean; losing two of four (2/4 = 50%), a panelist out of three
+   (2/3 ≈ 67%), or the sole survivor of a two-panel run (1/2 = 50%) does
+   not. "Returned a verdict" means a clean `exit 0`, not merely "produced
+   some output"; any non-zero exit (crash, timeout, the flaky `database is
+locked`) is a **missing** reviewer, not a returned one. If you can't
+   establish per-panelist exit status for every launched panelist (e.g. the
+   output was truncated), treat coverage as **not** established and don't
+   approve — never infer coverage from the synthesis alone. The quorum only
+   forgives the _missing_ reviewers: the panelists that **did** return must
+   still clear every other gate condition (no blocking findings #3, sound
+   approach #4) — a 75% quorum never lowers the bar on the reviewers
+   present. Coverage is the gate's central safety property.
 2. **Enough independent reviewers — at least two, not narrowed.** Two
    things must both hold: (a) a hard floor of **≥ 2 distinct panelists
    returned `exit 0`** — one opinion is never enough to auto-stamp, even
@@ -264,10 +276,13 @@ Three honest limits on that autonomy:
 - **Don't reimplement the sub-skills.** Call `panel-review`,
   `auto-post-panel-review-comments`, and `approve-pr`. The wiring + the
   gate are the only things this skill adds.
-- **A lost panelist blocks approval.** The flaky local CLIs sometimes exit
-  non-zero (`database is locked`, timeouts). That's missing coverage, not
-  a clean bill of health — post the comments but don't auto-approve;
-  report which panelist was missing so the user can re-run.
+- **Coverage below 75% blocks approval.** The flaky local CLIs sometimes
+  exit non-zero (`database is locked`, timeouts). One panelist dropping out
+  of a four-panel run (3/4 = 75%) still clears the coverage gate as long as
+  the returning reviewers are clean; falling below 75% of the launched set —
+  or below the ≥ 2 floor — does not. When coverage falls short, post the
+  comments but don't auto-approve, and report which panelist was missing so
+  the user can re-run.
 - **Polish still gets posted.** A clean-enough-to-approve PR can still have
   LOW comments worth leaving; post them, then approve with the "small
   comments, nothing blocking" body. Approval and polish comments are not
@@ -292,9 +307,10 @@ review for real (it's read-only) but don't post or approve. Write:
   its report path** (its dry-run honors caller-supplied paths). That keeps
   `./report.md` free for auto-review's own consolidated report below; fold
   auto-post's `./post-report.md` disposition into it.
-- `./approval.json` — the approval decision. Example:
-  `{ "approve": false, "reason": "1 should-fix (MEDIUM) finding", "body": null, "coverage": "3/3" }`
-  (on a pass: `{ "approve": true, "reason": "clean: LOW/polish only", "body": "LGTM, just some small comments, nothing blocking", "coverage": "3/3" }`).
+- `./approval.json` — the approval decision. `coverage` is the
+  returned/launched count (a quorum ≥ 75% passes — e.g. `"3/4"`). Example:
+  `{ "approve": false, "reason": "coverage 2/4 below 75%", "body": null, "coverage": "2/4" }`
+  (on a pass with one panelist lost: `{ "approve": true, "reason": "clean: LOW/polish only, quorum 3/4", "body": "LGTM, just some small comments, nothing blocking", "coverage": "3/4" }`).
 - `./report.md` — auto-review's **final consolidated** report (review
   summary + posting disposition + approval decision). The single
   authoritative report; auto-post's posting detail lives in
