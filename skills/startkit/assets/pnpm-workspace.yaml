@@ -1,0 +1,15 @@
+# https://pnpm.io/settings#blockexoticsubdeps
+blockExoticSubdeps: true
+
+# https://pnpm.io/settings#enableglobalvirtualstore
+enableGlobalVirtualStore: true
+
+# https://pnpm.io/settings#minimumreleaseage
+minimumReleaseAge: 1440 # (1 day)
+
+# Pin exact versions on install — no caret ranges.
+saveExact: true
+
+# https://pnpm.io/settings#trustpolicy
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 10080 # (1 week)

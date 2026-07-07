@@ -1,0 +1,33 @@
+# dependencies
+node_modules
+
+# build output
+dist
+out
+*.tgz
+
+# test coverage
+coverage
+*.lcov
+
+# logs
+logs
+*.log
+
+# dotenv
+.env
+.env.*.local
+.env.local
+
+# caches
+.cache
+*.tsbuildinfo
+
+# editors
+.idea
+
+# macOS
+.DS_Store
+
+# local-only files
+**/*.local.*
