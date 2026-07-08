@@ -14,7 +14,8 @@ description: >
   Different from `babysit-pr` (one PR, in place) and `pr-comment-handler`
   (one PR, comments only): this skill discovers many authored PRs,
   filters to the ones that need work, and works each in its own worktree
-  in parallel. Delegates the per-PR work to `babysit-pr`.
+  in parallel. Delegates worktree setup/teardown to the `git-worktree`
+  skill (the `wt` CLI) and the per-PR work to `babysit-pr`.
 ---
 
 # babysit-my-prs
@@ -69,16 +70,20 @@ If `actionable` is empty, say so and stop — nothing to do. Otherwise proceed.
 
 Create or reuse one worktree per actionable PR **from the main repo, one at a
 time** — `git worktree add` takes a repo-wide lock, so racing it across parallel
-agents can fail. The bundled helper does the fiddly part and prints the path:
+agents can fail. Worktree creation is delegated to the **`git-worktree`** skill,
+which shells out to the `wt` CLI; do the branches serially:
 
 ```bash
-skills/babysit-my-prs/scripts/ensure_worktree.sh "<branch>"
+git fetch origin                 # once — so origin/<branch> refs exist for wt
+wt create "<branch>"             # per PR, serially; prints the worktree path to stdout
 ```
 
-It reuses an existing worktree already checked out to that branch (including the
-main working copy) and otherwise creates one under
-`<repo-parent>/<repo-name>-worktrees/<branch-slug>`. Capture the printed path for
-each PR; that path is where its subagent will work.
+`wt create` reuses an existing worktree already checked out to that branch
+(including the main working copy) and otherwise creates one at
+`<repo-parent>/<repo-name>-<branch-slug>` — flat, alongside the repo. Capture the
+printed stdout path for each PR; that path is where its subagent will work. (If
+`wt` isn't installed, the `git-worktree` skill says so — don't hand-roll
+`git worktree add`.)
 
 ## 3. Fan out — one subagent per actionable PR
 
@@ -118,23 +123,23 @@ Aggregate the subagent summaries into one report:
 
 ## 5. Clean up the worktrees
 
-Once the sweep is done, remove the worktrees it created — one call per worktree
-path you captured in step 2:
+Once the sweep is done, remove the worktrees it created — one `wt rm` per branch
+(or per path) you captured in step 2, via the **`git-worktree`** skill:
 
 ```bash
-skills/babysit-my-prs/scripts/cleanup_worktree.sh "<worktree-path>"
+wt rm "<branch>"        # or: wt rm "<worktree-path>"
 ```
 
-The helper only removes a worktree when it's safe: never the main working copy,
-never a path outside `<repo-parent>/<repo-name>-worktrees/`, and never one with
-uncommitted changes (it declines rather than forcing). Removing a worktree keeps
-its branch and any committed work — only the directory goes, so the next sweep
-just recreates it.
+`wt rm` only removes a worktree when it's safe: it never touches the main working
+copy, and it refuses one with uncommitted changes (it wraps `git worktree remove`
+without `--force`, so nothing is lost). Removing a worktree keeps its branch and
+any committed work — only the directory goes, so the next sweep just recreates
+it. Never pass `-f` here — the refusal is the safety.
 
 **Only clean up worktrees for PRs that completed cleanly.** For any PR that
 landed in **Needs a human**, leave its worktree in place so the human can pick
-up the work where the subagent left it — say so in the report. A worktree the
-helper declines to remove (exit 3) stays put; list it under "kept" so nothing is
+up the work where the subagent left it — say so in the report. A worktree `wt rm`
+declines to remove (dirty or busy) stays put; list it under "kept" so nothing is
 silently left behind.
 
 ## Stop-and-ask triggers
@@ -148,11 +153,13 @@ you decide is which PRs are actionable — and the scanner already did that.
 
 ## Mechanics
 
-- Worktrees are sweep scratch: created under `<repo-parent>/<repo-name>-worktrees/`
-  in step 2, torn down in step 5. `cleanup_worktree.sh` protects the main working
-  copy and anything with uncommitted work, so a stopped PR keeps its checkout.
-  Within a run, `ensure_worktree.sh` still reuses an existing worktree for a
-  branch if one is present (e.g. a prior sweep that left one behind).
+- Worktrees are sweep scratch: created at `<repo-parent>/<repo-name>-<branch-slug>`
+  (flat, alongside the repo) via `wt create` in step 2, torn down with `wt rm` in
+  step 5. Worktree mechanics are owned by the `git-worktree` skill / `wt` CLI, not
+  re-derived here. `wt rm` protects the main working copy and anything with
+  uncommitted work, so a stopped PR keeps its checkout. `wt create` reuses an
+  existing worktree for a branch if one is present (e.g. a prior sweep that left
+  one behind, or the branch checked out in the main copy).
 - Inherit the session model for subagents; conflict resolution and comment
   triage are judgment work, not grunt work — never pin a cheaper model.
 - The per-PR git mechanics (fetch-all not scoped-fetch, merge-not-rebase, append
@@ -165,7 +172,8 @@ you decide is which PRs are actionable — and the scanner already did that.
 | Working a clean PR                            | No conflicts and no comments = skip it; only `actionable` gets work    |
 | Creating worktrees in parallel                | `git worktree add` locks the repo; resolve them serially, then fan out |
 | Re-deriving the per-PR conflict/comment logic | That is `babysit-pr`'s job — run it from the worktree                  |
-| Duplicating a worktree that already exists    | `ensure_worktree.sh` reuses the branch's existing checkout             |
+| Hand-rolling `git worktree add` into a path   | Use `wt create` (the `git-worktree` skill) so paths stay consistent    |
+| Duplicating a worktree that already exists    | `wt create` reuses the branch's existing checkout                      |
 | Removing a stopped PR's worktree              | Clean up only clean, completed PRs; leave a needs-a-human checkout     |
-| `rm -rf`-ing a worktree dir                   | Use `cleanup_worktree.sh` — it guards the main copy and dirty trees    |
+| `rm -rf`-ing a worktree dir                   | Use `wt rm` — it guards the main copy and refuses dirty trees          |
 | Pinning a cheaper model on the subagents      | Conflict + comment work is judgment; inherit the session model         |
