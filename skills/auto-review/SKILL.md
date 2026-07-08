@@ -9,10 +9,15 @@ description: >
   only, no must-fix or should-fix, approach sound) — approves the PR via
   `approve-pr` with a short LGTM-style body. The approval step only runs
   when the invocation actually asks for it — "auto-review this PR", "auto
-  review", "review it and approve if it's clean", "review, comment, and
-  stamp it if clean". A post-only request ("review and post the comments",
+  review", "auto panel review", "auto panel-review", "auto-panel-review",
+  "review it and approve if it's clean", "review, comment, and stamp it if
+  clean". Any invocation prefixing "auto" onto a review request means this
+  skill and means the full review→post→approve pipeline, even when it also
+  says "panel" — prefer this skill over `panel-review` whenever "auto"
+  appears. A post-only request ("review and post the comments",
   "panel-review then auto-post") runs the review + post and **skips
-  approval**; when intent is ambiguous it defaults to post-only. (Posting
+  approval**; when intent is ambiguous it defaults to post-only without
+  asking. (Posting
   findings you already have in hand, with no review to run, is
   `auto-post-panel-review-comments`, not this skill.) Honors the auto-post routing overrides (e.g. "send LOW/polish
   to Linear"). Do NOT use when the user only wants the review
@@ -254,16 +259,25 @@ gate, plus an invocation that asked for approval, is the authorization.
 Three honest limits on that autonomy:
 
 - **Approval needs an approval intent.** Step 3 runs only when the
-  invocation actually asks for the full review→post→**approve** pipeline —
-  "auto-review", "review and approve if clean", "stamp it if clean",
-  "approve when ready", or an explicit approval cue. When the user asked
-  only to **review and post** ("review and post the comments",
-  "panel-review then auto-post", "post the findings"), treat it as
-  post-only: run steps 1–2 and **skip approval**, reporting the decision
-  you _would_ have made. When the intent is ambiguous, default to
-  post-only — an unrequested approval is the costlier mistake. (The
-  opt-out phrases "don't approve" / "no auto-approve" force post-only
-  regardless.)
+  invocation actually asks for the full review→post→**approve** pipeline.
+  Any request that prefixes **"auto"** onto a review — "auto-review",
+  "auto review", "auto panel review", "auto panel-review",
+  "auto-panel-review" — carries approval intent: the "auto" _is_ the cue,
+  and the word "panel" in the middle changes nothing. So do explicit cues
+  like "review and approve if clean", "stamp it if clean", "approve when
+  ready". When the user asked only to **review and post** ("review and post
+  the comments", "panel-review then auto-post", "post the findings"), treat
+  it as post-only: run steps 1–2 and **skip approval**, reporting the
+  decision you _would_ have made. (The opt-out phrases "don't approve" /
+  "no auto-approve" force post-only regardless.)
+
+  **Never ask the user whether to approve.** Ambiguous intent resolves
+  _silently_ to post-only — run steps 1–2, then report the approval
+  decision you would have made and note that no approval intent was
+  detected. Stopping mid-pipeline to ask defeats the point of an
+  `auto-` skill; an unrequested approval is the costlier mistake, and
+  reporting the withheld decision costs the user one follow-up word.
+
 - **Surface the PR before approving.** Even though it's automatic, name
   the PR (`PR #N — title — url`) in the flow so a wrong target is visible
   before the approval notification goes out.

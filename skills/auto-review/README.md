@@ -22,11 +22,17 @@ On a PR (or its branch), ask:
 
 - "auto-review this PR"
 - "auto review"
+- "auto panel review" / "auto panel-review" (any "auto" + review phrasing)
 - "review and post the comments"
 - "panel-review then auto-post"
 - "review it and approve if it's clean"
 - "auto-review, but send the LOW/polish ones to Linear"
 - "review and post only, don't approve" (runs the review + post, skips approval)
+
+Anything that prefixes **"auto"** onto a review request lands here, not on
+`panel-review`, and carries approval intent. The skill never stops to ask
+whether to approve: the gate decides, and an ambiguous invocation silently
+falls back to post-only.
 
 ## What it does
 
