@@ -34,6 +34,16 @@ enabled, so type errors surface through `pnpm lint`.
 - AVOID mocking in tests where a real implementation is cheap.
 - Use clear names over inline comments; block comments for multi-line notes.
 
+## UI & styling
+
+- For ANY CSS/styling, use the latest **Tailwind CSS** (v4, global CSS file
+  format) by default. Do not reach for CSS Modules, styled-components, or plain
+  stylesheets unless there is a specific reason.
+- For UI components, use **shadcn/ui** whenever possible instead of hand-rolling
+  or pulling in another component library.
+- When using shadcn/ui, use **Base UI** (`@base-ui/react`) as the primitive
+  layer, NOT Radix. Install shadcn components in their Base UI variant.
+
 ## Before marking work complete
 
 - [ ] `pnpm check` passes
