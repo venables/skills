@@ -5,11 +5,14 @@ description: >
   pnpm, native-TS Node, oxlint (type-aware) + oxfmt, vitest, ultra-strict
   tsconfig, kebab-case filenames, and a GitHub Actions check on PRs and main.
   Use whenever the user wants to start a new TypeScript project, app, package,
-  library, or service from scratch, or says things like "new startkit app",
-  "scaffold a typescript project", "spin up a fresh TS repo", "start a new
-  project with my standards", "bootstrap a node/typescript app", or "create a
-  strict typescript starter". This is the baseline; monorepo, CLI, and
-  tanstack-start variants layer on top (see references/).
+  library, or service from scratch, or says things like "make a starter app",
+  "start a new typescript app", "new startkit app", "scaffold a typescript
+  project", "make me a starter", "spin up a fresh TS repo", "start a new project
+  with my standards", "bootstrap a node/typescript app", or "create a strict
+  typescript starter". Trigger on any request to create/scaffold/bootstrap/spin
+  up a new TS or Node project, even when the word "startkit" is not used. This is
+  the baseline; monorepo, CLI, and tanstack-start variants layer on top (see
+  references/).
 ---
 
 # startkit
