@@ -10,7 +10,10 @@ description: >
   outside this conversation. Each panelist runs in a fresh non-interactive
   subprocess with no shared state — that is the point. Do NOT use when the user
   just wants the current session to review code itself; use the regular
-  code-reviewer agent for that.
+  code-reviewer agent for that. Do NOT use when the request prefixes "auto"
+  onto the review ("auto review", "auto panel review", "auto-review") — the
+  "auto" means the review→post→approve pipeline, which is `auto-review`
+  (it calls this skill internally).
 ---
 
 # panel-review
