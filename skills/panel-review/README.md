@@ -17,7 +17,8 @@ npx skills add venables/skills --skill panel-review
 ## Requirements
 
 - **`oneshot`** on `PATH` (or set `ONESHOT_BIN` to the binary) — it's the
-  uniform driver every panelist runs through.
+  uniform driver every panelist runs through. Install it with
+  `brew install venables/tap/oneshot`.
 - At least one backend CLI installed: `codex`, `claude`, and/or `opencode`. The
   panel auto-detects whichever are on `PATH`.
 - `git`, and `gh` for PR targets.

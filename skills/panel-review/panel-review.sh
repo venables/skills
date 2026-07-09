@@ -430,7 +430,7 @@ fi
 
 # oneshot is the uniform driver for every panelist; without it nothing can run.
 command -v "$ONESHOT_BIN" >/dev/null 2>&1 || \
-  die "oneshot not found on PATH (looked for '$ONESHOT_BIN'). Install it, or point ONESHOT_BIN at the binary (e.g. ONESHOT_BIN=~/dev/cli/oneshot/target/release/oneshot)."
+  die "oneshot not found on PATH (looked for '$ONESHOT_BIN'). Install it with 'brew install venables/tap/oneshot', or point ONESHOT_BIN at the binary (e.g. ONESHOT_BIN=~/dev/cli/oneshot/target/release/oneshot)."
 
 # ----- Output dir -----
 if [[ -z "$OUT_DIR" ]]; then
