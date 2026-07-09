@@ -603,7 +603,8 @@ Every panelist is spawned as `oneshot -H <backend> ...`. `oneshot` is the
 uniform driver over claude / codex / opencode: the script passes generic flags
 (`-H`, `--model`, `--cwd`, `--dangerously-skip-permissions`, `--timeout`) and
 `oneshot` translates them into each CLI's native argv. It must be on `PATH`
-(override with `ONESHOT_BIN`); point the underlying CLI per backend with
+(install with `brew install venables/tap/oneshot`; override the binary with
+`ONESHOT_BIN`); point the underlying CLI per backend with
 `oneshot`'s own `ONESHOT_CLAUDE_BIN` / `ONESHOT_CODEX_BIN` /
 `ONESHOT_OPENCODE_BIN`.
 
