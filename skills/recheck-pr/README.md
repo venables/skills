@@ -21,6 +21,7 @@ If you don't name a PR, it auto-detects from your current branch.
 
 ## What it does
 
+- **Bails immediately when nothing changed.** If the head SHA still matches what you reviewed and nobody replied to your threads, it says `nothing changed since <sha>, N findings still open` and stops. Two API calls, one line of output — no report, no resolve, no approval.
 - **Rebuilds the ledger** from the prior review: every finding, its severity, its `file:line`, and the thread it was posted to.
 - **Diffs the delta** — `reviewed SHA ... current head` — because that's the code nobody has reviewed yet. Detects force-pushes (`diverged`), which mean the delta can't be isolated.
 - **Adjudicates every finding** as `REMEDIATED` / `EXPLAINED` / `MOOT` / `OUTSTANDING`, by reading the new code. A reply saying "fixed in abc1234" is a claim, not evidence. A fix that handles the reported case but leaves the same bug one call site over stays outstanding.
