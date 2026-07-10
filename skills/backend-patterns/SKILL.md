@@ -1,7 +1,6 @@
 ---
 name: backend-patterns
-description:
-  Backend architecture patterns, API design, database optimization, and
+description: Backend architecture patterns, API design, database optimization, and
   server-side best practices for Node.js, Express, and Next.js API routes.
 ---
 
@@ -16,45 +15,45 @@ applications.
 
 ```typescript
 // ✅ Resource-based URLs
-GET    /api/markets                 # List resources
-GET    /api/markets/:id             # Get single resource
-POST   /api/markets                 # Create resource
-PUT    /api/markets/:id             # Replace resource
-PATCH  /api/markets/:id             # Update resource
-DELETE /api/markets/:id             # Delete resource
+GET    /api/posts                   # List resources
+GET    /api/posts/:id               # Get single resource
+POST   /api/posts                   # Create resource
+PUT    /api/posts/:id               # Replace resource
+PATCH  /api/posts/:id               # Update resource
+DELETE /api/posts/:id               # Delete resource
 
 // ✅ Query parameters for filtering, sorting, pagination
-GET /api/markets?status=active&sort=volume&limit=20&offset=0
+GET /api/posts?status=published&sort=viewCount&limit=20&offset=0
 ```
 
 ### Repository Pattern
 
 ```typescript
 // Abstract data access logic
-interface MarketRepository {
-  findAll(filters?: MarketFilters): Promise<Market[]>
-  findById(id: string): Promise<Market | null>
-  create(data: CreateMarketDto): Promise<Market>
-  update(id: string, data: UpdateMarketDto): Promise<Market>
-  delete(id: string): Promise<void>
+interface PostRepository {
+  findAll(filters?: PostFilters): Promise<Post[]>;
+  findById(id: string): Promise<Post | null>;
+  create(data: CreatePostDto): Promise<Post>;
+  update(id: string, data: UpdatePostDto): Promise<Post>;
+  delete(id: string): Promise<void>;
 }
 
-class SupabaseMarketRepository implements MarketRepository {
-  async findAll(filters?: MarketFilters): Promise<Market[]> {
-    let query = supabase.from("markets").select("*")
+class SupabasePostRepository implements PostRepository {
+  async findAll(filters?: PostFilters): Promise<Post[]> {
+    let query = supabase.from("posts").select("*");
 
     if (filters?.status) {
-      query = query.eq("status", filters.status)
+      query = query.eq("status", filters.status);
     }
 
     if (filters?.limit) {
-      query = query.limit(filters.limit)
+      query = query.limit(filters.limit);
     }
 
-    const { data, error } = await query
+    const { data, error } = await query;
 
-    if (error) throw new Error(error.message)
-    return data
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   // Other methods...
@@ -65,23 +64,23 @@ class SupabaseMarketRepository implements MarketRepository {
 
 ```typescript
 // Business logic separated from data access
-class MarketService {
-  constructor(private marketRepo: MarketRepository) {}
+class PostService {
+  constructor(private postRepo: PostRepository) {}
 
-  async searchMarkets(query: string, limit: number = 10): Promise<Market[]> {
+  async searchPosts(query: string, limit: number = 10): Promise<Post[]> {
     // Business logic
-    const embedding = await generateEmbedding(query)
-    const results = await this.vectorSearch(embedding, limit)
+    const embedding = await generateEmbedding(query);
+    const results = await this.vectorSearch(embedding, limit);
 
     // Fetch full data
-    const markets = await this.marketRepo.findByIds(results.map((r) => r.id))
+    const posts = await this.postRepo.findByIds(results.map((r) => r.id));
 
     // Sort by similarity
-    return markets.sort((a, b) => {
-      const scoreA = results.find((r) => r.id === a.id)?.score || 0
-      const scoreB = results.find((r) => r.id === b.id)?.score || 0
-      return scoreA - scoreB
-    })
+    return posts.sort((a, b) => {
+      const scoreA = results.find((r) => r.id === a.id)?.score || 0;
+      const scoreB = results.find((r) => r.id === b.id)?.score || 0;
+      return scoreA - scoreB;
+    });
   }
 
   private async vectorSearch(embedding: number[], limit: number) {
@@ -96,26 +95,26 @@ class MarketService {
 // Request/response processing pipeline
 export function withAuth(handler: NextApiHandler): NextApiHandler {
   return async (req, res) => {
-    const token = req.headers.authorization?.replace("Bearer ", "")
+    const token = req.headers.authorization?.replace("Bearer ", "");
 
     if (!token) {
-      return res.status(401).json({ error: "Unauthorized" })
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     try {
-      const user = await verifyToken(token)
-      req.user = user
-      return handler(req, res)
+      const user = await verifyToken(token);
+      req.user = user;
+      return handler(req, res);
     } catch (error) {
-      return res.status(401).json({ error: "Invalid token" })
+      return res.status(401).json({ error: "Invalid token" });
     }
-  }
+  };
 }
 
 // Usage
 export default withAuth(async (req, res) => {
   // Handler has access to req.user
-})
+});
 ```
 
 ## Database Patterns
@@ -125,47 +124,47 @@ export default withAuth(async (req, res) => {
 ```typescript
 // ✅ GOOD: Select only needed columns
 const { data } = await supabase
-  .from("markets")
-  .select("id, name, status, volume")
-  .eq("status", "active")
-  .order("volume", { ascending: false })
-  .limit(10)
+  .from("posts")
+  .select("id, title, status, viewCount")
+  .eq("status", "published")
+  .order("viewCount", { ascending: false })
+  .limit(10);
 
 // ❌ BAD: Select everything
-const { data } = await supabase.from("markets").select("*")
+const { data } = await supabase.from("posts").select("*");
 ```
 
 ### N+1 Query Prevention
 
 ```typescript
 // ❌ BAD: N+1 query problem
-const markets = await getMarkets()
-for (const market of markets) {
-  market.creator = await getUser(market.creator_id) // N queries
+const posts = await getPosts();
+for (const post of posts) {
+  post.author = await getUser(post.author_id); // N queries
 }
 
 // ✅ GOOD: Batch fetch
-const markets = await getMarkets()
-const creatorIds = markets.map((m) => m.creator_id)
-const creators = await getUsers(creatorIds) // 1 query
-const creatorMap = new Map(creators.map((c) => [c.id, c]))
+const posts = await getPosts();
+const authorIds = posts.map((p) => p.author_id);
+const authors = await getUsers(authorIds); // 1 query
+const authorMap = new Map(authors.map((a) => [a.id, a]));
 
-markets.forEach((market) => {
-  market.creator = creatorMap.get(market.creator_id)
-})
+posts.forEach((post) => {
+  post.author = authorMap.get(post.author_id);
+});
 ```
 
 ### Transaction Pattern
 
 ```typescript
-async function createMarketWithPosition(
-  marketData: CreateMarketDto,
-  positionData: CreatePositionDto
+async function createPostWithTag(
+  postData: CreatePostDto,
+  tagData: CreateTagDto
 ) {
   // Use Supabase transaction
-  const { data, error } = await supabase.rpc('create_market_with_position', {
-    market_data: marketData,
-    position_data: positionData
+  const { data, error } = await supabase.rpc('create_post_with_tag', {
+    post_data: postData,
+    tag_data: tagData
   })
 
   if (error) throw new Error('Transaction failed')
@@ -173,17 +172,17 @@ async function createMarketWithPosition(
 }
 
 // SQL function in Supabase
-CREATE OR REPLACE FUNCTION create_market_with_position(
-  market_data jsonb,
-  position_data jsonb
+CREATE OR REPLACE FUNCTION create_post_with_tag(
+  post_data jsonb,
+  tag_data jsonb
 )
 RETURNS jsonb
 LANGUAGE plpgsql
 AS $$
 BEGIN
   -- Start transaction automatically
-  INSERT INTO markets VALUES (market_data);
-  INSERT INTO positions VALUES (position_data);
+  INSERT INTO posts VALUES (post_data);
+  INSERT INTO tags VALUES (tag_data);
   RETURN jsonb_build_object('success', true);
 EXCEPTION
   WHEN OTHERS THEN
@@ -198,33 +197,33 @@ $$;
 ### Redis Caching Layer
 
 ```typescript
-class CachedMarketRepository implements MarketRepository {
+class CachedPostRepository implements PostRepository {
   constructor(
-    private baseRepo: MarketRepository,
-    private redis: RedisClient
+    private baseRepo: PostRepository,
+    private redis: RedisClient,
   ) {}
 
-  async findById(id: string): Promise<Market | null> {
+  async findById(id: string): Promise<Post | null> {
     // Check cache first
-    const cached = await this.redis.get(`market:${id}`)
+    const cached = await this.redis.get(`post:${id}`);
 
     if (cached) {
-      return JSON.parse(cached)
+      return JSON.parse(cached);
     }
 
     // Cache miss - fetch from database
-    const market = await this.baseRepo.findById(id)
+    const post = await this.baseRepo.findById(id);
 
-    if (market) {
+    if (post) {
       // Cache for 5 minutes
-      await this.redis.setex(`market:${id}`, 300, JSON.stringify(market))
+      await this.redis.setex(`post:${id}`, 300, JSON.stringify(post));
     }
 
-    return market
+    return post;
   }
 
   async invalidateCache(id: string): Promise<void> {
-    await this.redis.del(`market:${id}`)
+    await this.redis.del(`post:${id}`);
   }
 }
 ```
@@ -232,22 +231,22 @@ class CachedMarketRepository implements MarketRepository {
 ### Cache-Aside Pattern
 
 ```typescript
-async function getMarketWithCache(id: string): Promise<Market> {
-  const cacheKey = `market:${id}`
+async function getPostWithCache(id: string): Promise<Post> {
+  const cacheKey = `post:${id}`;
 
   // Try cache
-  const cached = await redis.get(cacheKey)
-  if (cached) return JSON.parse(cached)
+  const cached = await redis.get(cacheKey);
+  if (cached) return JSON.parse(cached);
 
   // Cache miss - fetch from DB
-  const market = await db.markets.findUnique({ where: { id } })
+  const post = await db.posts.findUnique({ where: { id } });
 
-  if (!market) throw new Error("Market not found")
+  if (!post) throw new Error("Post not found");
 
   // Update cache
-  await redis.setex(cacheKey, 300, JSON.stringify(market))
+  await redis.setex(cacheKey, 300, JSON.stringify(post));
 
-  return market
+  return post;
 }
 ```
 
@@ -260,10 +259,10 @@ class ApiError extends Error {
   constructor(
     public statusCode: number,
     public message: string,
-    public isOperational = true
+    public isOperational = true,
   ) {
-    super(message)
-    Object.setPrototypeOf(this, ApiError.prototype)
+    super(message);
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
 
@@ -272,10 +271,10 @@ export function errorHandler(error: unknown, req: Request): Response {
     return NextResponse.json(
       {
         success: false,
-        error: error.message
+        error: error.message,
       },
-      { status: error.statusCode }
-    )
+      { status: error.statusCode },
+    );
   }
 
   if (error instanceof z.ZodError) {
@@ -283,31 +282,31 @@ export function errorHandler(error: unknown, req: Request): Response {
       {
         success: false,
         error: "Validation failed",
-        details: error.errors
+        details: error.errors,
       },
-      { status: 400 }
-    )
+      { status: 400 },
+    );
   }
 
   // Log unexpected errors
-  console.error("Unexpected error:", error)
+  console.error("Unexpected error:", error);
 
   return NextResponse.json(
     {
       success: false,
-      error: "Internal server error"
+      error: "Internal server error",
     },
-    { status: 500 }
-  )
+    { status: 500 },
+  );
 }
 
 // Usage
 export async function GET(request: Request) {
   try {
-    const data = await fetchData()
-    return NextResponse.json({ success: true, data })
+    const data = await fetchData();
+    return NextResponse.json({ success: true, data });
   } catch (error) {
-    return errorHandler(error, request)
+    return errorHandler(error, request);
   }
 }
 ```
@@ -315,31 +314,28 @@ export async function GET(request: Request) {
 ### Retry with Exponential Backoff
 
 ```typescript
-async function fetchWithRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3
-): Promise<T> {
-  let lastError: Error
+async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastError: Error;
 
   for (let i = 0; i < maxRetries; i++) {
     try {
-      return await fn()
+      return await fn();
     } catch (error) {
-      lastError = error as Error
+      lastError = error as Error;
 
       if (i < maxRetries - 1) {
         // Exponential backoff: 1s, 2s, 4s
-        const delay = Math.pow(2, i) * 1000
-        await new Promise((resolve) => setTimeout(resolve, delay))
+        const delay = Math.pow(2, i) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
-  throw lastError!
+  throw lastError!;
 }
 
 // Usage
-const data = await fetchWithRetry(() => fetchFromAPI())
+const data = await fetchWithRetry(() => fetchFromAPI());
 ```
 
 ## Authentication & Authorization
@@ -347,79 +343,79 @@ const data = await fetchWithRetry(() => fetchFromAPI())
 ### JWT Token Validation
 
 ```typescript
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 
 interface JWTPayload {
-  userId: string
-  email: string
-  role: "admin" | "user"
+  userId: string;
+  email: string;
+  role: "admin" | "user";
 }
 
 export function verifyToken(token: string): JWTPayload {
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload
-    return payload
+    const payload = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    return payload;
   } catch (error) {
-    throw new ApiError(401, "Invalid token")
+    throw new ApiError(401, "Invalid token");
   }
 }
 
 export async function requireAuth(request: Request) {
-  const token = request.headers.get("authorization")?.replace("Bearer ", "")
+  const token = request.headers.get("authorization")?.replace("Bearer ", "");
 
   if (!token) {
-    throw new ApiError(401, "Missing authorization token")
+    throw new ApiError(401, "Missing authorization token");
   }
 
-  return verifyToken(token)
+  return verifyToken(token);
 }
 
 // Usage in API route
 export async function GET(request: Request) {
-  const user = await requireAuth(request)
+  const user = await requireAuth(request);
 
-  const data = await getDataForUser(user.userId)
+  const data = await getDataForUser(user.userId);
 
-  return NextResponse.json({ success: true, data })
+  return NextResponse.json({ success: true, data });
 }
 ```
 
 ### Role-Based Access Control
 
 ```typescript
-type Permission = "read" | "write" | "delete" | "admin"
+type Permission = "read" | "write" | "delete" | "admin";
 
 interface User {
-  id: string
-  role: "admin" | "moderator" | "user"
+  id: string;
+  role: "admin" | "moderator" | "user";
 }
 
 const rolePermissions: Record<User["role"], Permission[]> = {
   admin: ["read", "write", "delete", "admin"],
   moderator: ["read", "write", "delete"],
-  user: ["read", "write"]
-}
+  user: ["read", "write"],
+};
 
 export function hasPermission(user: User, permission: Permission): boolean {
-  return rolePermissions[user.role].includes(permission)
+  return rolePermissions[user.role].includes(permission);
 }
 
 export function requirePermission(permission: Permission) {
   return async (request: Request) => {
-    const user = await requireAuth(request)
+    const user = await requireAuth(request);
 
     if (!hasPermission(user, permission)) {
-      throw new ApiError(403, "Insufficient permissions")
+      throw new ApiError(403, "Insufficient permissions");
     }
 
-    return user
-  }
+    return user;
+  };
 }
 
 // Usage
 export const DELETE = requirePermission("delete")(async (request: Request) => {
   // Handler with permission check
-})
+});
 ```
 
 ## Rate Limiting
@@ -428,45 +424,41 @@ export const DELETE = requirePermission("delete")(async (request: Request) => {
 
 ```typescript
 class RateLimiter {
-  private requests = new Map<string, number[]>()
+  private requests = new Map<string, number[]>();
 
-  async checkLimit(
-    identifier: string,
-    maxRequests: number,
-    windowMs: number
-  ): Promise<boolean> {
-    const now = Date.now()
-    const requests = this.requests.get(identifier) || []
+  async checkLimit(identifier: string, maxRequests: number, windowMs: number): Promise<boolean> {
+    const now = Date.now();
+    const requests = this.requests.get(identifier) || [];
 
     // Remove old requests outside window
-    const recentRequests = requests.filter((time) => now - time < windowMs)
+    const recentRequests = requests.filter((time) => now - time < windowMs);
 
     if (recentRequests.length >= maxRequests) {
-      return false // Rate limit exceeded
+      return false; // Rate limit exceeded
     }
 
     // Add current request
-    recentRequests.push(now)
-    this.requests.set(identifier, recentRequests)
+    recentRequests.push(now);
+    this.requests.set(identifier, recentRequests);
 
-    return true
+    return true;
   }
 }
 
-const limiter = new RateLimiter()
+const limiter = new RateLimiter();
 
 export async function GET(request: Request) {
-  const ip = request.headers.get("x-forwarded-for") || "unknown"
+  const ip = request.headers.get("x-forwarded-for") || "unknown";
 
-  const allowed = await limiter.checkLimit(ip, 100, 60000) // 100 req/min
+  const allowed = await limiter.checkLimit(ip, 100, 60000); // 100 req/min
 
   if (!allowed) {
     return NextResponse.json(
       {
-        error: "Rate limit exceeded"
+        error: "Rate limit exceeded",
       },
-      { status: 429 }
-    )
+      { status: 429 },
+    );
   }
 
   // Continue with request
@@ -479,31 +471,31 @@ export async function GET(request: Request) {
 
 ```typescript
 class JobQueue<T> {
-  private queue: T[] = []
-  private processing = false
+  private queue: T[] = [];
+  private processing = false;
 
   async add(job: T): Promise<void> {
-    this.queue.push(job)
+    this.queue.push(job);
 
     if (!this.processing) {
-      this.process()
+      this.process();
     }
   }
 
   private async process(): Promise<void> {
-    this.processing = true
+    this.processing = true;
 
     while (this.queue.length > 0) {
-      const job = this.queue.shift()!
+      const job = this.queue.shift()!;
 
       try {
-        await this.execute(job)
+        await this.execute(job);
       } catch (error) {
-        console.error("Job failed:", error)
+        console.error("Job failed:", error);
       }
     }
 
-    this.processing = false
+    this.processing = false;
   }
 
   private async execute(job: T): Promise<void> {
@@ -511,20 +503,20 @@ class JobQueue<T> {
   }
 }
 
-// Usage for indexing markets
+// Usage for indexing posts
 interface IndexJob {
-  marketId: string
+  postId: string;
 }
 
-const indexQueue = new JobQueue<IndexJob>()
+const indexQueue = new JobQueue<IndexJob>();
 
 export async function POST(request: Request) {
-  const { marketId } = await request.json()
+  const { postId } = await request.json();
 
   // Add to queue instead of blocking
-  await indexQueue.add({ marketId })
+  await indexQueue.add({ postId });
 
-  return NextResponse.json({ success: true, message: "Job queued" })
+  return NextResponse.json({ success: true, message: "Job queued" });
 }
 ```
 
@@ -534,11 +526,11 @@ export async function POST(request: Request) {
 
 ```typescript
 interface LogContext {
-  userId?: string
-  requestId?: string
-  method?: string
-  path?: string
-  [key: string]: unknown
+  userId?: string;
+  requestId?: string;
+  method?: string;
+  path?: string;
+  [key: string]: unknown;
 }
 
 class Logger {
@@ -547,47 +539,47 @@ class Logger {
       timestamp: new Date().toISOString(),
       level,
       message,
-      ...context
-    }
+      ...context,
+    };
 
-    console.log(JSON.stringify(entry))
+    console.log(JSON.stringify(entry));
   }
 
   info(message: string, context?: LogContext) {
-    this.log("info", message, context)
+    this.log("info", message, context);
   }
 
   warn(message: string, context?: LogContext) {
-    this.log("warn", message, context)
+    this.log("warn", message, context);
   }
 
   error(message: string, error: Error, context?: LogContext) {
     this.log("error", message, {
       ...context,
       error: error.message,
-      stack: error.stack
-    })
+      stack: error.stack,
+    });
   }
 }
 
-const logger = new Logger()
+const logger = new Logger();
 
 // Usage
 export async function GET(request: Request) {
-  const requestId = crypto.randomUUID()
+  const requestId = crypto.randomUUID();
 
-  logger.info("Fetching markets", {
+  logger.info("Fetching posts", {
     requestId,
     method: "GET",
-    path: "/api/markets"
-  })
+    path: "/api/posts",
+  });
 
   try {
-    const markets = await fetchMarkets()
-    return NextResponse.json({ success: true, data: markets })
+    const posts = await fetchPosts();
+    return NextResponse.json({ success: true, data: posts });
   } catch (error) {
-    logger.error("Failed to fetch markets", error as Error, { requestId })
-    return NextResponse.json({ error: "Internal error" }, { status: 500 })
+    logger.error("Failed to fetch posts", error as Error, { requestId });
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
 ```

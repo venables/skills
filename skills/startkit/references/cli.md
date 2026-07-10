@@ -12,6 +12,3 @@ Intended deltas over the base (to implement later):
 - `src/index.ts` becomes the CLI entry; commands live in `src/commands/*.ts`.
 - `dev` runs the entry directly; `build` bundles to `dist/index.mjs`; `start`
   runs the built binary.
-
-Reference the existing `~/dev/startkit/cli` template, modernized to
-pnpm + vitest (it currently uses bun).

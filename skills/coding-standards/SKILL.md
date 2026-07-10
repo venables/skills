@@ -1,7 +1,6 @@
 ---
 name: coding-standards
-description:
-  Universal coding standards, best practices, and patterns for TypeScript,
+description: Universal coding standards, best practices, and patterns for TypeScript,
   JavaScript, React, and Node.js development.
 ---
 
@@ -45,26 +44,26 @@ Universal coding standards applicable across all projects.
 
 ```typescript
 // ✅ GOOD: Descriptive names
-const marketSearchQuery = "election"
-const isUserAuthenticated = true
-const totalRevenue = 1000
+const postSearchQuery = "typescript generics";
+const isUserAuthenticated = true;
+const totalRevenue = 1000;
 
 // ❌ BAD: Unclear names
-const q = "election"
-const flag = true
-const x = 1000
+const q = "typescript generics";
+const flag = true;
+const x = 1000;
 ```
 
 ### Function Naming
 
 ```typescript
 // ✅ GOOD: Verb-noun pattern
-async function fetchMarketData(marketId: string) {}
+async function fetchPostData(postId: string) {}
 function calculateSimilarity(a: number[], b: number[]) {}
 function isValidEmail(email: string): boolean {}
 
 // ❌ BAD: Unclear or noun-only
-async function market(id: string) {}
+async function post(id: string) {}
 function similarity(a, b) {}
 function email(e) {}
 ```
@@ -75,14 +74,14 @@ function email(e) {}
 // ✅ ALWAYS use spread operator
 const updatedUser = {
   ...user,
-  name: "New Name"
-}
+  name: "New Name",
+};
 
-const updatedArray = [...items, newItem]
+const updatedArray = [...items, newItem];
 
 // ❌ NEVER mutate directly
-user.name = "New Name" // BAD
-items.push(newItem) // BAD
+user.name = "New Name"; // BAD
+items.push(newItem); // BAD
 ```
 
 ### Error Handling
@@ -91,23 +90,23 @@ items.push(newItem) // BAD
 // ✅ GOOD: Comprehensive error handling
 async function fetchData(url: string) {
   try {
-    const response = await fetch(url)
+    const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    return await response.json()
+    return await response.json();
   } catch (error) {
-    console.error("Fetch failed:", error)
-    throw new Error("Failed to fetch data")
+    console.error("Fetch failed:", error);
+    throw new Error("Failed to fetch data");
   }
 }
 
 // ❌ BAD: No error handling
 async function fetchData(url) {
-  const response = await fetch(url)
-  return response.json()
+  const response = await fetch(url);
+  return response.json();
 }
 ```
 
@@ -115,35 +114,31 @@ async function fetchData(url) {
 
 ```typescript
 // ✅ GOOD: Parallel execution when possible
-const [users, markets, stats] = await Promise.all([
-  fetchUsers(),
-  fetchMarkets(),
-  fetchStats()
-])
+const [users, posts, stats] = await Promise.all([fetchUsers(), fetchPosts(), fetchStats()]);
 
 // ❌ BAD: Sequential when unnecessary
-const users = await fetchUsers()
-const markets = await fetchMarkets()
-const stats = await fetchStats()
+const users = await fetchUsers();
+const posts = await fetchPosts();
+const stats = await fetchStats();
 ```
 
 ### Type Safety
 
 ```typescript
 // ✅ GOOD: Proper types
-interface Market {
-  id: string
-  name: string
-  status: "active" | "resolved" | "closed"
-  created_at: Date
+interface Post {
+  id: string;
+  title: string;
+  status: "draft" | "published" | "archived";
+  created_at: Date;
 }
 
-function getMarket(id: string): Promise<Market> {
+function getPost(id: string): Promise<Post> {
   // Implementation
 }
 
 // ❌ BAD: Using 'any'
-function getMarket(id: any): Promise<any> {
+function getPost(id: any): Promise<any> {
   // Implementation
 }
 ```
@@ -189,34 +184,34 @@ export function Button(props) {
 ```typescript
 // ✅ GOOD: Reusable custom hook
 export function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
+      setDebouncedValue(value);
+    }, delay);
 
-    return () => clearTimeout(handler)
-  }, [value, delay])
+    return () => clearTimeout(handler);
+  }, [value, delay]);
 
-  return debouncedValue
+  return debouncedValue;
 }
 
 // Usage
-const debouncedQuery = useDebounce(searchQuery, 500)
+const debouncedQuery = useDebounce(searchQuery, 500);
 ```
 
 ### State Management
 
 ```typescript
 // ✅ GOOD: Proper state updates
-const [count, setCount] = useState(0)
+const [count, setCount] = useState(0);
 
 // Functional update for state based on previous state
-setCount((prev) => prev + 1)
+setCount((prev) => prev + 1);
 
 // ❌ BAD: Direct state reference
-setCount(count + 1) // Can be stale in async scenarios
+setCount(count + 1); // Can be stale in async scenarios
 ```
 
 ### Conditional Rendering
@@ -236,15 +231,15 @@ setCount(count + 1) // Can be stale in async scenarios
 ### REST API Conventions
 
 ```
-GET    /api/markets              # List all markets
-GET    /api/markets/:id          # Get specific market
-POST   /api/markets              # Create new market
-PUT    /api/markets/:id          # Update market (full)
-PATCH  /api/markets/:id          # Update market (partial)
-DELETE /api/markets/:id          # Delete market
+GET    /api/posts               # List all posts
+GET    /api/posts/:id           # Get specific post
+POST   /api/posts               # Create new post
+PUT    /api/posts/:id           # Update post (full)
+PATCH  /api/posts/:id           # Update post (partial)
+DELETE /api/posts/:id           # Delete post
 
 # Query parameters for filtering
-GET /api/markets?status=active&limit=10&offset=0
+GET /api/posts?status=published&limit=10&offset=0
 ```
 
 ### Response Format
@@ -252,51 +247,51 @@ GET /api/markets?status=active&limit=10&offset=0
 ```typescript
 // ✅ GOOD: Consistent response structure
 interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
+  success: boolean;
+  data?: T;
+  error?: string;
   meta?: {
-    total: number
-    page: number
-    limit: number
-  }
+    total: number;
+    page: number;
+    limit: number;
+  };
 }
 
 // Success response
 return NextResponse.json({
   success: true,
-  data: markets,
-  meta: { total: 100, page: 1, limit: 10 }
-})
+  data: posts,
+  meta: { total: 100, page: 1, limit: 10 },
+});
 
 // Error response
 return NextResponse.json(
   {
     success: false,
-    error: "Invalid request"
+    error: "Invalid request",
   },
-  { status: 400 }
-)
+  { status: 400 },
+);
 ```
 
 ### Input Validation
 
 ```typescript
-import { z } from "zod"
+import { z } from "zod";
 
 // ✅ GOOD: Schema validation
-const CreateMarketSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().min(1).max(2000),
-  endDate: z.string().datetime(),
-  categories: z.array(z.string()).min(1)
-})
+const CreatePostSchema = z.object({
+  title: z.string().min(1).max(200),
+  body: z.string().min(1).max(2000),
+  publishedAt: z.string().datetime(),
+  tags: z.array(z.string()).min(1),
+});
 
 export async function POST(request: Request) {
-  const body = await request.json()
+  const body = await request.json();
 
   try {
-    const validated = CreateMarketSchema.parse(body)
+    const validated = CreatePostSchema.parse(body);
     // Proceed with validated data
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -304,10 +299,10 @@ export async function POST(request: Request) {
         {
           success: false,
           error: "Validation failed",
-          details: error.errors
+          details: error.errors,
         },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
   }
 }
@@ -321,7 +316,7 @@ export async function POST(request: Request) {
 src/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
-│   ├── markets/           # Market pages
+│   ├── posts/             # Post pages
 │   └── (auth)/           # Auth pages (route groups)
 ├── components/            # React components
 │   ├── ui/               # Generic UI components
@@ -342,7 +337,7 @@ src/
 components/Button.tsx          # PascalCase for components
 hooks/useAuth.ts              # camelCase with 'use' prefix
 lib/formatDate.ts             # camelCase for utilities
-types/market.types.ts         # camelCase with .types suffix
+types/post.types.ts           # camelCase with .types suffix
 ```
 
 ## Comments & Documentation
@@ -352,40 +347,37 @@ types/market.types.ts         # camelCase with .types suffix
 ```typescript
 // ✅ GOOD: Explain WHY, not WHAT
 // Use exponential backoff to avoid overwhelming the API during outages
-const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
+const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
 
 // Deliberately using mutation here for performance with large arrays
-items.push(newItem)
+items.push(newItem);
 
 // ❌ BAD: Stating the obvious
 // Increment counter by 1
-count++
+count++;
 
 // Set name to user's name
-name = user.name
+name = user.name;
 ```
 
 ### JSDoc for Public APIs
 
 ````typescript
 /**
- * Searches markets using semantic similarity.
+ * Searches posts using semantic similarity.
  *
  * @param query - Natural language search query
  * @param limit - Maximum number of results (default: 10)
- * @returns Array of markets sorted by similarity score
+ * @returns Array of posts sorted by similarity score
  * @throws {Error} If OpenAI API fails or Redis unavailable
  *
  * @example
  * ```typescript
- * const results = await searchMarkets('election', 5)
- * console.log(results[0].name) // "Trump vs Biden"
+ * const results = await searchPosts('typescript generics', 5)
+ * console.log(results[0].title) // "A guide to TypeScript generics"
  * ```
  */
-export async function searchMarkets(
-  query: string,
-  limit: number = 10
-): Promise<Market[]> {
+export async function searchPosts(query: string, limit: number = 10): Promise<Post[]> {
   // Implementation
 }
 ````
@@ -395,17 +387,17 @@ export async function searchMarkets(
 ### Memoization
 
 ```typescript
-import { useMemo, useCallback } from "react"
+import { useMemo, useCallback } from "react";
 
 // ✅ GOOD: Memoize expensive computations
-const sortedMarkets = useMemo(() => {
-  return markets.sort((a, b) => b.volume - a.volume)
-}, [markets])
+const sortedPosts = useMemo(() => {
+  return posts.sort((a, b) => b.views - a.views);
+}, [posts]);
 
 // ✅ GOOD: Memoize callbacks
 const handleSearch = useCallback((query: string) => {
-  setSearchQuery(query)
-}, [])
+  setSearchQuery(query);
+}, []);
 ```
 
 ### Lazy Loading
@@ -429,13 +421,10 @@ export function Dashboard() {
 
 ```typescript
 // ✅ GOOD: Select only needed columns
-const { data } = await supabase
-  .from("markets")
-  .select("id, name, status")
-  .limit(10)
+const { data } = await supabase.from("posts").select("id, title, status").limit(10);
 
 // ❌ BAD: Select everything
-const { data } = await supabase.from("markets").select("*")
+const { data } = await supabase.from("posts").select("*");
 ```
 
 ## Testing Standards
@@ -445,28 +434,28 @@ const { data } = await supabase.from("markets").select("*")
 ```typescript
 test("calculates similarity correctly", () => {
   // Arrange
-  const vector1 = [1, 0, 0]
-  const vector2 = [0, 1, 0]
+  const vector1 = [1, 0, 0];
+  const vector2 = [0, 1, 0];
 
   // Act
-  const similarity = calculateCosineSimilarity(vector1, vector2)
+  const similarity = calculateCosineSimilarity(vector1, vector2);
 
   // Assert
-  expect(similarity).toBe(0)
-})
+  expect(similarity).toBe(0);
+});
 ```
 
 ### Test Naming
 
 ```typescript
 // ✅ GOOD: Descriptive test names
-test("returns empty array when no markets match query", () => {})
-test("throws error when OpenAI API key is missing", () => {})
-test("falls back to substring search when Redis unavailable", () => {})
+test("returns empty array when no posts match query", () => {});
+test("throws error when OpenAI API key is missing", () => {});
+test("falls back to substring search when Redis unavailable", () => {});
 
 // ❌ BAD: Vague test names
-test("works", () => {})
-test("test search", () => {})
+test("works", () => {});
+test("test search", () => {});
 ```
 
 ## Code Smell Detection
@@ -477,15 +466,15 @@ Watch for these anti-patterns:
 
 ```typescript
 // ❌ BAD: Function > 50 lines
-function processMarketData() {
+function processPostData() {
   // 100 lines of code
 }
 
 // ✅ GOOD: Split into smaller functions
-function processMarketData() {
-  const validated = validateData()
-  const transformed = transformData(validated)
-  return saveData(transformed)
+function processPostData() {
+  const validated = validateData();
+  const transformed = transformData(validated);
+  return saveData(transformed);
 }
 ```
 
@@ -495,8 +484,8 @@ function processMarketData() {
 // ❌ BAD: 5+ levels of nesting
 if (user) {
   if (user.isAdmin) {
-    if (market) {
-      if (market.isActive) {
+    if (post) {
+      if (post.isPublished) {
         if (hasPermission) {
           // Do something
         }
@@ -506,11 +495,11 @@ if (user) {
 }
 
 // ✅ GOOD: Early returns
-if (!user) return
-if (!user.isAdmin) return
-if (!market) return
-if (!market.isActive) return
-if (!hasPermission) return
+if (!user) return;
+if (!user.isAdmin) return;
+if (!post) return;
+if (!post.isPublished) return;
+if (!hasPermission) return;
 
 // Do something
 ```
@@ -521,15 +510,15 @@ if (!hasPermission) return
 // ❌ BAD: Unexplained numbers
 if (retryCount > 3) {
 }
-setTimeout(callback, 500)
+setTimeout(callback, 500);
 
 // ✅ GOOD: Named constants
-const MAX_RETRIES = 3
-const DEBOUNCE_DELAY_MS = 500
+const MAX_RETRIES = 3;
+const DEBOUNCE_DELAY_MS = 500;
 
 if (retryCount > MAX_RETRIES) {
 }
-setTimeout(callback, DEBOUNCE_DELAY_MS)
+setTimeout(callback, DEBOUNCE_DELAY_MS);
 ```
 
 **Remember**: Code quality is not negotiable. Clear, maintainable code enables

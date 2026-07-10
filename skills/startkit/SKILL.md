@@ -1,7 +1,7 @@
 ---
 name: startkit
 description: >
-  Scaffold a new strict-TypeScript project from Matt's startkit standard:
+  Scaffold a new strict-TypeScript project from the startkit standard:
   pnpm, native-TS Node, oxlint (type-aware) + oxfmt, vitest, ultra-strict
   tsconfig, kebab-case filenames, and a GitHub Actions check on PRs and main.
   Use whenever the user wants to start a new TypeScript project, app, package,
@@ -17,7 +17,7 @@ description: >
 
 # startkit
 
-Scaffold a new TypeScript project matching Matt's baseline standard. The bundled
+Scaffold a new TypeScript project matching the baseline standard. The bundled
 `assets/` are the source of truth for every config file. This skill copies them,
 resolves current tool versions at scaffold time, installs, and verifies.
 

@@ -12,8 +12,4 @@ Intended deltas over the base (to implement later):
   are still kebab-case.
 - `dev`/`build`/`start` run through Vite instead of node.
 - Optional auth: `better-auth`, wired behind a flag the user opts into.
-- Data layer: TanStack Query; optional Cloudflare (Wrangler + D1 + kysely) as in
-  the existing template.
-
-Reference the existing `~/dev/startkit/web` template, modernized to the base
-standard (pnpm, oxlint type-aware options, vitest).
+- Data layer: TanStack Query; optional Cloudflare (Wrangler + D1 + kysely).

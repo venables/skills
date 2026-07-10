@@ -33,12 +33,13 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 
 ## Building and shipping
 
-| Skill                                 | Description                                                                                                                                                                                                                                                                  |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [ship](./skills/ship)                 | The standing build-to-merged-PR playbook: fresh branch, small commits, a panel review after each phase, sync with main, then a PR with a real Problem / Solution / Testing body                                                                                              |
-| [tdd-workflow](./skills/tdd-workflow) | Enforce test-driven development on new features, bug fixes, and refactors, aiming at 80%+ coverage across unit, integration, and E2E tests                                                                                                                                   |
-| [verify](./skills/verify)             | Run the verification loop after a feature or any significant change, checking code quality and conformance before you call it done                                                                                                                                           |
-| [startkit](./skills/startkit)         | Scaffold a new strict-TypeScript project from the baseline standard — pnpm, native-TS Node, oxlint (type-aware) + oxfmt, vitest, ultra-strict tsconfig, kebab-case filenames, and a GitHub Actions check on PRs and main. Monorepo/CLI/web variants stubbed in `references/` |
+| Skill                                               | Description                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ship](./skills/ship)                               | The standing build-to-merged-PR playbook: fresh branch, small commits, a panel review after each phase, sync with main, then a PR with a real Problem / Solution / Testing body                                                                                              |
+| [create-pull-request](./skills/create-pull-request) | Open a PR a human can skim: a plain-language title and a body that leads with a short Changes list before Problem / Solution / Testing. Derives both from the diff and commits, honors a repo PR template, and is what `ship` delegates PR-opening to                        |
+| [tdd-workflow](./skills/tdd-workflow)               | Enforce test-driven development on new features, bug fixes, and refactors, aiming at 80%+ coverage across unit, integration, and E2E tests                                                                                                                                   |
+| [verify](./skills/verify)                           | Run the verification loop after a feature or any significant change, checking code quality and conformance before you call it done                                                                                                                                           |
+| [startkit](./skills/startkit)                       | Scaffold a new strict-TypeScript project from the baseline standard — pnpm, native-TS Node, oxlint (type-aware) + oxfmt, vitest, ultra-strict tsconfig, kebab-case filenames, and a GitHub Actions check on PRs and main. Monorepo/CLI/web variants stubbed in `references/` |
 
 ## Standards and reference
 
@@ -55,8 +56,6 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 | Skill                                                                                               | Description                                                                                          |
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | [optimize-agents-md](https://github.com/catena-labs/dev-skills/tree/main/skills/optimize-agents-md) | Optimize your AGENTS.md (and CLAUDE.md) files according to best practices. Works with monorepos, too |
-
-Skills linked to [catena-labs/dev-skills](https://github.com/catena-labs/dev-skills) have moved out of this repo.
 
 ## License
 

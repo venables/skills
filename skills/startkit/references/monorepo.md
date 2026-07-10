@@ -15,6 +15,3 @@ Intended deltas over the base (to implement later):
   `.oxlintrc.json`, `tsconfig.base.json`, and `vitest` setup are defined once.
 - CI runs the task runner's `check` across the graph with remote caching off by
   default.
-
-Reference the existing `~/dev/startkit/hono-monorepo` template when building this
-out, but modernize it to pnpm + vitest (it currently uses bun + turbo).

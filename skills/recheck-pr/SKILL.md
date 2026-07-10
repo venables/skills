@@ -32,6 +32,8 @@ actually changed and decide: is this good enough to stamp?
 ```
 prior findings (in context)
       │
+      ├─► head == reviewed SHA and no new replies?  ─yes─►  "Nothing changed." stop.
+      │
       ├─► adjudicate each: remediated / explained / moot / outstanding
       │       (read the new code — a reply saying "fixed" is a claim, not evidence)
       │
@@ -91,6 +93,38 @@ auto-detect is caught before a resolve or an approval notification goes out.
 If the PR is `MERGED` or `CLOSED`, stop and say so — there's nothing to
 re-check or approve.
 
+## Fast path: nothing changed
+
+**Do this before anything else.** Most re-checks are asked for prematurely —
+the author hasn't pushed yet. Detect that in two cheap calls and get out.
+
+```bash
+gh pr view <ref> --json headRefOid --jq '.headRefOid'   # NEW
+scripts/fetch_pr_threads.sh <pr>
+```
+
+Exit immediately when **both** hold:
+
+- `NEW` equals the reviewed SHA (`OLD`) — no code was pushed.
+- No unresolved thread of yours has a reply you haven't seen — i.e. every
+  one is `has_reply: false`, or `last_author` is you. Nothing was argued.
+
+There is nothing to adjudicate: no new code, no new argument. Don't rebuild
+the ledger, don't diff, don't re-read the PR, don't reply, don't resolve,
+don't approve. Say it in one line and stop:
+
+```
+PR #61 — nothing changed since aaaa1111. 2 findings still open.
+```
+
+Name the open count so the user knows the state without asking. If the PR
+was already fully satisfied at `OLD` but you never approved it, say that
+instead (`nothing changed; 0 open — rerun with approval intent to stamp it`)
+rather than silently approving off a stale read.
+
+Anything else — a push (`NEW != OLD`), or a reply you haven't adjudicated —
+means there's real work, so fall through to the full pass below.
+
 ## The pass
 
 ### 1. Rebuild the ledger
@@ -131,8 +165,10 @@ gh api "repos/{owner}/{repo}/compare/${OLD}...${NEW}" \
 - `ahead` — the author pushed on top of what you reviewed. This is the
   normal case: the delta is exactly `ahead_by` commits, and it's the only
   code nobody has reviewed.
-- `identical` — nothing was pushed. If findings were outstanding, they're
-  still outstanding; the author may have only replied. Say so plainly.
+- `identical` — nothing was pushed, so you only got here because the author
+  replied. Skip the diff entirely: adjudicate those replies (step 3, the
+  EXPLAINED path) and nothing else. Findings nobody argued are still
+  outstanding.
 - `diverged` — the author rebased or force-pushed, so `OLD` is no longer an
   ancestor. You can still read the compare's file list, but it now includes
   base-branch churn, and there is **no clean delta to isolate**. Treat this
@@ -340,6 +376,10 @@ visible on the PR is a silent block.
 
 ## Gotchas
 
+- **No push, no argument, no work.** Check the head SHA first and bail in
+  one line. A re-check asked for before the author pushed should cost two
+  API calls, not a full re-read of the PR — and it should not produce a
+  report, a resolve, or an approval.
 - **"Fixed in abc1234" is a claim.** The single most common failure of a
   re-check is trusting the reply. Open the file at the new SHA. Half-fixes
   and fixes-at-the-wrong-site both look exactly like fixes from the thread.
@@ -374,7 +414,8 @@ visible on the PR is a silent block.
 
 If the user asks for a dry run, or sets `RECHECK_PR_DRY_RUN=1`, do all the
 reading (it's read-only) but reply to nothing, resolve nothing, and approve
-nothing. Write:
+nothing. The fast path still short-circuits first — a no-op re-check writes
+no files. Otherwise write:
 
 - `./recheck.json` — the ledger plus the decision:
 
