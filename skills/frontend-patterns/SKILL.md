@@ -113,11 +113,11 @@ export function DataLoader<T>({ url, children }: DataLoaderProps<T>) {
 }
 
 // Usage
-<DataLoader<Market[]> url="/api/markets">
-  {(markets, loading, error) => {
+<DataLoader<Post[]> url="/api/posts">
+  {(posts, loading, error) => {
     if (loading) return <Spinner />
     if (error) return <Error error={error} />
-    return <MarketList markets={markets!} />
+    return <PostList posts={posts!} />
   }}
 </DataLoader>
 ```
@@ -183,12 +183,12 @@ export function useQuery<T>(key: string, fetcher: () => Promise<T>, options?: Us
 
 // Usage
 const {
-  data: markets,
+  data: posts,
   loading,
   error,
   refetch,
-} = useQuery("markets", () => fetch("/api/markets").then((r) => r.json()), {
-  onSuccess: (data) => console.log("Fetched", data.length, "markets"),
+} = useQuery("posts", () => fetch("/api/posts").then((r) => r.json()), {
+  onSuccess: (data) => console.log("Fetched", data.length, "posts"),
   onError: (err) => console.error("Failed:", err),
 });
 ```
@@ -227,22 +227,22 @@ useEffect(() => {
 
 ```typescript
 interface State {
-  markets: Market[]
-  selectedMarket: Market | null
+  posts: Post[]
+  selectedPost: Post | null
   loading: boolean
 }
 
 type Action =
-  | { type: 'SET_MARKETS'; payload: Market[] }
-  | { type: 'SELECT_MARKET'; payload: Market }
+  | { type: 'SET_POSTS'; payload: Post[] }
+  | { type: 'SELECT_POST'; payload: Post }
   | { type: 'SET_LOADING'; payload: boolean }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'SET_MARKETS':
-      return { ...state, markets: action.payload }
-    case 'SELECT_MARKET':
-      return { ...state, selectedMarket: action.payload }
+    case 'SET_POSTS':
+      return { ...state, posts: action.payload }
+    case 'SELECT_POST':
+      return { ...state, selectedPost: action.payload }
     case 'SET_LOADING':
       return { ...state, loading: action.payload }
     default:
@@ -250,28 +250,28 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-const MarketContext = createContext<{
+const PostContext = createContext<{
   state: State
   dispatch: Dispatch<Action>
 } | undefined>(undefined)
 
-export function MarketProvider({ children }: { children: React.ReactNode }) {
+export function PostProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, {
-    markets: [],
-    selectedMarket: null,
+    posts: [],
+    selectedPost: null,
     loading: false
   })
 
   return (
-    <MarketContext.Provider value={{ state, dispatch }}>
+    <PostContext.Provider value={{ state, dispatch }}>
       {children}
-    </MarketContext.Provider>
+    </PostContext.Provider>
   )
 }
 
-export function useMarkets() {
-  const context = useContext(MarketContext)
-  if (!context) throw new Error('useMarkets must be used within MarketProvider')
+export function usePosts() {
+  const context = useContext(PostContext)
+  if (!context) throw new Error('usePosts must be used within PostProvider')
   return context
 }
 ```
@@ -282,9 +282,9 @@ export function useMarkets() {
 
 ```typescript
 // ✅ useMemo for expensive computations
-const sortedMarkets = useMemo(() => {
-  return markets.sort((a, b) => b.volume - a.volume)
-}, [markets])
+const sortedPosts = useMemo(() => {
+  return posts.sort((a, b) => b.viewCount - a.viewCount)
+}, [posts])
 
 // ✅ useCallback for functions passed to children
 const handleSearch = useCallback((query: string) => {
@@ -292,11 +292,11 @@ const handleSearch = useCallback((query: string) => {
 }, [])
 
 // ✅ React.memo for pure components
-export const MarketCard = React.memo<MarketCardProps>(({ market }) => {
+export const PostCard = React.memo<PostCardProps>(({ post }) => {
   return (
-    <div className="market-card">
-      <h3>{market.name}</h3>
-      <p>{market.description}</p>
+    <div className="post-card">
+      <h3>{post.title}</h3>
+      <p>{post.body}</p>
     </div>
   )
 })
@@ -331,11 +331,11 @@ export function Dashboard() {
 ```typescript
 import { useVirtualizer } from '@tanstack/react-virtual'
 
-export function VirtualMarketList({ markets }: { markets: Market[] }) {
+export function VirtualPostList({ posts }: { posts: Post[] }) {
   const parentRef = useRef<HTMLDivElement>(null)
 
   const virtualizer = useVirtualizer({
-    count: markets.length,
+    count: posts.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 100,  // Estimated row height
     overscan: 5  // Extra items to render
@@ -361,7 +361,7 @@ export function VirtualMarketList({ markets }: { markets: Market[] }) {
               transform: `translateY(${virtualRow.start}px)`
             }}
           >
-            <MarketCard market={markets[virtualRow.index]} />
+            <PostCard post={posts[virtualRow.index]} />
           </div>
         ))}
       </div>
@@ -376,22 +376,22 @@ export function VirtualMarketList({ markets }: { markets: Market[] }) {
 
 ```typescript
 interface FormData {
-  name: string
-  description: string
-  endDate: string
+  title: string
+  body: string
+  publishedAt: string
 }
 
 interface FormErrors {
-  name?: string
-  description?: string
-  endDate?: string
+  title?: string
+  body?: string
+  publishedAt?: string
 }
 
-export function CreateMarketForm() {
+export function CreatePostForm() {
   const [formData, setFormData] = useState<FormData>({
-    name: '',
-    description: '',
-    endDate: ''
+    title: '',
+    body: '',
+    publishedAt: ''
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
@@ -399,18 +399,18 @@ export function CreateMarketForm() {
   const validate = (): boolean => {
     const newErrors: FormErrors = {}
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required'
-    } else if (formData.name.length > 200) {
-      newErrors.name = 'Name must be under 200 characters'
+    if (!formData.title.trim()) {
+      newErrors.title = 'Title is required'
+    } else if (formData.title.length > 200) {
+      newErrors.title = 'Title must be under 200 characters'
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = 'Description is required'
+    if (!formData.body.trim()) {
+      newErrors.body = 'Body is required'
     }
 
-    if (!formData.endDate) {
-      newErrors.endDate = 'End date is required'
+    if (!formData.publishedAt) {
+      newErrors.publishedAt = 'Publish date is required'
     }
 
     setErrors(newErrors)
@@ -423,7 +423,7 @@ export function CreateMarketForm() {
     if (!validate()) return
 
     try {
-      await createMarket(formData)
+      await createPost(formData)
       // Success handling
     } catch (error) {
       // Error handling
@@ -433,15 +433,15 @@ export function CreateMarketForm() {
   return (
     <form onSubmit={handleSubmit}>
       <input
-        value={formData.name}
-        onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-        placeholder="Market name"
+        value={formData.title}
+        onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
+        placeholder="Post title"
       />
-      {errors.name && <span className="error">{errors.name}</span>}
+      {errors.title && <span className="error">{errors.title}</span>}
 
       {/* Other fields */}
 
-      <button type="submit">Create Market</button>
+      <button type="submit">Create Post</button>
     </form>
   )
 }
@@ -503,18 +503,18 @@ export class ErrorBoundary extends React.Component<
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ✅ List animations
-export function AnimatedMarketList({ markets }: { markets: Market[] }) {
+export function AnimatedPostList({ posts }: { posts: Post[] }) {
   return (
     <AnimatePresence>
-      {markets.map(market => (
+      {posts.map(post => (
         <motion.div
-          key={market.id}
+          key={post.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
         >
-          <MarketCard market={market} />
+          <PostCard post={post} />
         </motion.div>
       ))}
     </AnimatePresence>

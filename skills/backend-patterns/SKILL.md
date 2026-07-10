@@ -15,32 +15,32 @@ applications.
 
 ```typescript
 // ✅ Resource-based URLs
-GET    /api/markets                 # List resources
-GET    /api/markets/:id             # Get single resource
-POST   /api/markets                 # Create resource
-PUT    /api/markets/:id             # Replace resource
-PATCH  /api/markets/:id             # Update resource
-DELETE /api/markets/:id             # Delete resource
+GET    /api/posts                   # List resources
+GET    /api/posts/:id               # Get single resource
+POST   /api/posts                   # Create resource
+PUT    /api/posts/:id               # Replace resource
+PATCH  /api/posts/:id               # Update resource
+DELETE /api/posts/:id               # Delete resource
 
 // ✅ Query parameters for filtering, sorting, pagination
-GET /api/markets?status=active&sort=volume&limit=20&offset=0
+GET /api/posts?status=published&sort=viewCount&limit=20&offset=0
 ```
 
 ### Repository Pattern
 
 ```typescript
 // Abstract data access logic
-interface MarketRepository {
-  findAll(filters?: MarketFilters): Promise<Market[]>;
-  findById(id: string): Promise<Market | null>;
-  create(data: CreateMarketDto): Promise<Market>;
-  update(id: string, data: UpdateMarketDto): Promise<Market>;
+interface PostRepository {
+  findAll(filters?: PostFilters): Promise<Post[]>;
+  findById(id: string): Promise<Post | null>;
+  create(data: CreatePostDto): Promise<Post>;
+  update(id: string, data: UpdatePostDto): Promise<Post>;
   delete(id: string): Promise<void>;
 }
 
-class SupabaseMarketRepository implements MarketRepository {
-  async findAll(filters?: MarketFilters): Promise<Market[]> {
-    let query = supabase.from("markets").select("*");
+class SupabasePostRepository implements PostRepository {
+  async findAll(filters?: PostFilters): Promise<Post[]> {
+    let query = supabase.from("posts").select("*");
 
     if (filters?.status) {
       query = query.eq("status", filters.status);
@@ -64,19 +64,19 @@ class SupabaseMarketRepository implements MarketRepository {
 
 ```typescript
 // Business logic separated from data access
-class MarketService {
-  constructor(private marketRepo: MarketRepository) {}
+class PostService {
+  constructor(private postRepo: PostRepository) {}
 
-  async searchMarkets(query: string, limit: number = 10): Promise<Market[]> {
+  async searchPosts(query: string, limit: number = 10): Promise<Post[]> {
     // Business logic
     const embedding = await generateEmbedding(query);
     const results = await this.vectorSearch(embedding, limit);
 
     // Fetch full data
-    const markets = await this.marketRepo.findByIds(results.map((r) => r.id));
+    const posts = await this.postRepo.findByIds(results.map((r) => r.id));
 
     // Sort by similarity
-    return markets.sort((a, b) => {
+    return posts.sort((a, b) => {
       const scoreA = results.find((r) => r.id === a.id)?.score || 0;
       const scoreB = results.find((r) => r.id === b.id)?.score || 0;
       return scoreA - scoreB;
@@ -124,47 +124,47 @@ export default withAuth(async (req, res) => {
 ```typescript
 // ✅ GOOD: Select only needed columns
 const { data } = await supabase
-  .from("markets")
-  .select("id, name, status, volume")
-  .eq("status", "active")
-  .order("volume", { ascending: false })
+  .from("posts")
+  .select("id, title, status, viewCount")
+  .eq("status", "published")
+  .order("viewCount", { ascending: false })
   .limit(10);
 
 // ❌ BAD: Select everything
-const { data } = await supabase.from("markets").select("*");
+const { data } = await supabase.from("posts").select("*");
 ```
 
 ### N+1 Query Prevention
 
 ```typescript
 // ❌ BAD: N+1 query problem
-const markets = await getMarkets();
-for (const market of markets) {
-  market.creator = await getUser(market.creator_id); // N queries
+const posts = await getPosts();
+for (const post of posts) {
+  post.author = await getUser(post.author_id); // N queries
 }
 
 // ✅ GOOD: Batch fetch
-const markets = await getMarkets();
-const creatorIds = markets.map((m) => m.creator_id);
-const creators = await getUsers(creatorIds); // 1 query
-const creatorMap = new Map(creators.map((c) => [c.id, c]));
+const posts = await getPosts();
+const authorIds = posts.map((p) => p.author_id);
+const authors = await getUsers(authorIds); // 1 query
+const authorMap = new Map(authors.map((a) => [a.id, a]));
 
-markets.forEach((market) => {
-  market.creator = creatorMap.get(market.creator_id);
+posts.forEach((post) => {
+  post.author = authorMap.get(post.author_id);
 });
 ```
 
 ### Transaction Pattern
 
 ```typescript
-async function createMarketWithPosition(
-  marketData: CreateMarketDto,
-  positionData: CreatePositionDto
+async function createPostWithTag(
+  postData: CreatePostDto,
+  tagData: CreateTagDto
 ) {
   // Use Supabase transaction
-  const { data, error } = await supabase.rpc('create_market_with_position', {
-    market_data: marketData,
-    position_data: positionData
+  const { data, error } = await supabase.rpc('create_post_with_tag', {
+    post_data: postData,
+    tag_data: tagData
   })
 
   if (error) throw new Error('Transaction failed')
@@ -172,17 +172,17 @@ async function createMarketWithPosition(
 }
 
 // SQL function in Supabase
-CREATE OR REPLACE FUNCTION create_market_with_position(
-  market_data jsonb,
-  position_data jsonb
+CREATE OR REPLACE FUNCTION create_post_with_tag(
+  post_data jsonb,
+  tag_data jsonb
 )
 RETURNS jsonb
 LANGUAGE plpgsql
 AS $$
 BEGIN
   -- Start transaction automatically
-  INSERT INTO markets VALUES (market_data);
-  INSERT INTO positions VALUES (position_data);
+  INSERT INTO posts VALUES (post_data);
+  INSERT INTO tags VALUES (tag_data);
   RETURN jsonb_build_object('success', true);
 EXCEPTION
   WHEN OTHERS THEN
@@ -197,33 +197,33 @@ $$;
 ### Redis Caching Layer
 
 ```typescript
-class CachedMarketRepository implements MarketRepository {
+class CachedPostRepository implements PostRepository {
   constructor(
-    private baseRepo: MarketRepository,
+    private baseRepo: PostRepository,
     private redis: RedisClient,
   ) {}
 
-  async findById(id: string): Promise<Market | null> {
+  async findById(id: string): Promise<Post | null> {
     // Check cache first
-    const cached = await this.redis.get(`market:${id}`);
+    const cached = await this.redis.get(`post:${id}`);
 
     if (cached) {
       return JSON.parse(cached);
     }
 
     // Cache miss - fetch from database
-    const market = await this.baseRepo.findById(id);
+    const post = await this.baseRepo.findById(id);
 
-    if (market) {
+    if (post) {
       // Cache for 5 minutes
-      await this.redis.setex(`market:${id}`, 300, JSON.stringify(market));
+      await this.redis.setex(`post:${id}`, 300, JSON.stringify(post));
     }
 
-    return market;
+    return post;
   }
 
   async invalidateCache(id: string): Promise<void> {
-    await this.redis.del(`market:${id}`);
+    await this.redis.del(`post:${id}`);
   }
 }
 ```
@@ -231,22 +231,22 @@ class CachedMarketRepository implements MarketRepository {
 ### Cache-Aside Pattern
 
 ```typescript
-async function getMarketWithCache(id: string): Promise<Market> {
-  const cacheKey = `market:${id}`;
+async function getPostWithCache(id: string): Promise<Post> {
+  const cacheKey = `post:${id}`;
 
   // Try cache
   const cached = await redis.get(cacheKey);
   if (cached) return JSON.parse(cached);
 
   // Cache miss - fetch from DB
-  const market = await db.markets.findUnique({ where: { id } });
+  const post = await db.posts.findUnique({ where: { id } });
 
-  if (!market) throw new Error("Market not found");
+  if (!post) throw new Error("Post not found");
 
   // Update cache
-  await redis.setex(cacheKey, 300, JSON.stringify(market));
+  await redis.setex(cacheKey, 300, JSON.stringify(post));
 
-  return market;
+  return post;
 }
 ```
 
@@ -503,18 +503,18 @@ class JobQueue<T> {
   }
 }
 
-// Usage for indexing markets
+// Usage for indexing posts
 interface IndexJob {
-  marketId: string;
+  postId: string;
 }
 
 const indexQueue = new JobQueue<IndexJob>();
 
 export async function POST(request: Request) {
-  const { marketId } = await request.json();
+  const { postId } = await request.json();
 
   // Add to queue instead of blocking
-  await indexQueue.add({ marketId });
+  await indexQueue.add({ postId });
 
   return NextResponse.json({ success: true, message: "Job queued" });
 }
@@ -568,17 +568,17 @@ const logger = new Logger();
 export async function GET(request: Request) {
   const requestId = crypto.randomUUID();
 
-  logger.info("Fetching markets", {
+  logger.info("Fetching posts", {
     requestId,
     method: "GET",
-    path: "/api/markets",
+    path: "/api/posts",
   });
 
   try {
-    const markets = await fetchMarkets();
-    return NextResponse.json({ success: true, data: markets });
+    const posts = await fetchPosts();
+    return NextResponse.json({ success: true, data: posts });
   } catch (error) {
-    logger.error("Failed to fetch markets", error as Error, { requestId });
+    logger.error("Failed to fetch posts", error as Error, { requestId });
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

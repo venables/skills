@@ -62,8 +62,8 @@ ALWAYS write tests first, then implement code to make tests pass.
 As a [role], I want to [action], so that [benefit]
 
 Example:
-As a user, I want to search for markets semantically,
-so that I can find relevant markets even without exact keywords.
+As a user, I want to search for posts semantically,
+so that I can find relevant posts even without exact keywords.
 ```
 
 ### Step 2: Generate Test Cases
@@ -72,7 +72,7 @@ For each user journey, create comprehensive test cases:
 
 ```typescript
 describe("Semantic Search", () => {
-  it("returns relevant markets for query", async () => {
+  it("returns relevant posts for query", async () => {
     // Test implementation
   });
 
@@ -103,7 +103,7 @@ Write minimal code to make tests pass:
 
 ```typescript
 // Implementation guided by tests
-export async function searchMarkets(query: string) {
+export async function searchPosts(query: string) {
   // Implementation here
 }
 ```
@@ -167,9 +167,9 @@ describe('Button Component', () => {
 import { NextRequest } from "next/server";
 import { GET } from "./route";
 
-describe("GET /api/markets", () => {
-  it("returns markets successfully", async () => {
-    const request = new NextRequest("http://localhost/api/markets");
+describe("GET /api/posts", () => {
+  it("returns posts successfully", async () => {
+    const request = new NextRequest("http://localhost/api/posts");
     const response = await GET(request);
     const data = await response.json();
 
@@ -179,7 +179,7 @@ describe("GET /api/markets", () => {
   });
 
   it("validates query parameters", async () => {
-    const request = new NextRequest("http://localhost/api/markets?limit=invalid");
+    const request = new NextRequest("http://localhost/api/posts?limit=invalid");
     const response = await GET(request);
 
     expect(response.status).toBe(400);
@@ -187,7 +187,7 @@ describe("GET /api/markets", () => {
 
   it("handles database errors gracefully", async () => {
     // Mock database failure
-    const request = new NextRequest("http://localhost/api/markets");
+    const request = new NextRequest("http://localhost/api/posts");
     // Test error handling
   });
 });
@@ -198,52 +198,52 @@ describe("GET /api/markets", () => {
 ```typescript
 import { test, expect } from "@playwright/test";
 
-test("user can search and filter markets", async ({ page }) => {
-  // Navigate to markets page
+test("user can search and filter posts", async ({ page }) => {
+  // Navigate to posts page
   await page.goto("/");
-  await page.click('a[href="/markets"]');
+  await page.click('a[href="/posts"]');
 
   // Verify page loaded
-  await expect(page.locator("h1")).toContainText("Markets");
+  await expect(page.locator("h1")).toContainText("Posts");
 
-  // Search for markets
-  await page.fill('input[placeholder="Search markets"]', "election");
+  // Search for posts
+  await page.fill('input[placeholder="Search posts"]', "typescript");
 
   // Wait for debounce and results
   await page.waitForTimeout(600);
 
   // Verify search results displayed
-  const results = page.locator('[data-testid="market-card"]');
+  const results = page.locator('[data-testid="post-card"]');
   await expect(results).toHaveCount(5, { timeout: 5000 });
 
   // Verify results contain search term
   const firstResult = results.first();
-  await expect(firstResult).toContainText("election", { ignoreCase: true });
+  await expect(firstResult).toContainText("typescript", { ignoreCase: true });
 
   // Filter by status
-  await page.click('button:has-text("Active")');
+  await page.click('button:has-text("Published")');
 
   // Verify filtered results
   await expect(results).toHaveCount(3);
 });
 
-test("user can create a new market", async ({ page }) => {
+test("user can create a new post", async ({ page }) => {
   // Login first
-  await page.goto("/creator-dashboard");
+  await page.goto("/author-dashboard");
 
-  // Fill market creation form
-  await page.fill('input[name="name"]', "Test Market");
-  await page.fill('textarea[name="description"]', "Test description");
-  await page.fill('input[name="endDate"]', "2025-12-31");
+  // Fill post creation form
+  await page.fill('input[name="title"]', "Test Post");
+  await page.fill('textarea[name="body"]', "Test body");
+  await page.fill('input[name="publishedAt"]', "2025-12-31");
 
   // Submit form
   await page.click('button[type="submit"]');
 
   // Verify success message
-  await expect(page.locator("text=Market created successfully")).toBeVisible();
+  await expect(page.locator("text=Post created successfully")).toBeVisible();
 
-  // Verify redirect to market page
-  await expect(page).toHaveURL(/\/markets\/test-market/);
+  // Verify redirect to post page
+  await expect(page).toHaveURL(/\/posts\/test-post/);
 });
 ```
 
@@ -256,17 +256,17 @@ src/
 │   │   ├── Button.tsx
 │   │   ├── Button.test.tsx          # Unit tests
 │   │   └── Button.stories.tsx       # Storybook
-│   └── MarketCard/
-│       ├── MarketCard.tsx
-│       └── MarketCard.test.tsx
+│   └── PostCard/
+│       ├── PostCard.tsx
+│       └── PostCard.test.tsx
 ├── app/
 │   └── api/
-│       └── markets/
+│       └── posts/
 │           ├── route.ts
 │           └── route.test.ts         # Integration tests
 └── e2e/
-    ├── markets.spec.ts               # E2E tests
-    ├── trading.spec.ts
+    ├── posts.spec.ts                 # E2E tests
+    ├── authoring.spec.ts
     └── auth.spec.ts
 ```
 
@@ -281,7 +281,7 @@ jest.mock("@/lib/supabase", () => ({
       select: jest.fn(() => ({
         eq: jest.fn(() =>
           Promise.resolve({
-            data: [{ id: 1, name: "Test Market" }],
+            data: [{ id: 1, title: "Test Post" }],
             error: null,
           }),
         ),
@@ -295,8 +295,8 @@ jest.mock("@/lib/supabase", () => ({
 
 ```typescript
 jest.mock("@/lib/redis", () => ({
-  searchMarketsByVector: jest.fn(() =>
-    Promise.resolve([{ slug: "test-market", similarity_score: 0.95 }]),
+  searchPostsByVector: jest.fn(() =>
+    Promise.resolve([{ slug: "test-post", similarity_score: 0.95 }]),
   ),
   checkRedisHealth: jest.fn(() => Promise.resolve({ connected: true })),
 }));
