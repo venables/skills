@@ -57,8 +57,6 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | [optimize-agents-md](https://github.com/catena-labs/dev-skills/tree/main/skills/optimize-agents-md) | Optimize your AGENTS.md (and CLAUDE.md) files according to best practices. Works with monorepos, too |
 
-Skills linked to [catena-labs/dev-skills](https://github.com/catena-labs/dev-skills) have moved out of this repo.
-
 ## License
 
 MIT
