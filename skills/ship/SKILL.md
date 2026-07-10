@@ -13,14 +13,58 @@ This is the standard lifecycle Matt expects for every non-trivial change. He sho
 2. **Build in phases, commit often.** Small conventional commits (`feat:`, `fix:`, `refactor:`, ...), each a single logical change, committed as soon as it is coherent. Do not batch a day's work into one commit. If repo instructions say "don't commit unless asked", Matt's preference overrides for his own repos: commit often.
 3. **Panel review loop after each phase.** Run the `panel-review-loop` skill when a phase is complete, fix what matters, and continue. This is the universal quality gate before any PR.
 4. **Sync with main before PR.** Merge origin/main in, resolve conflicts. If the repo has numbered DB migrations, check that main did not take your migration number while the branch lived; renumber if it did.
-5. **Open the PR** with a clear human-readable body:
-   - **Problem**: what was wrong or missing.
-   - **Solution**: what was done, why this approach was chosen, and how it works.
-   - **Testing**: how to validate, plus screenshots for UI states when applicable (use the repo's screenshot convention if one exists in AGENTS.md).
+5. **Open the PR** with a title and body a human can skim. See "PR title" and "PR body" below.
    - Reference the Linear ticket when one exists. When shipping from a plan, include the plan findings in the PR body itself; never commit a `plans/` folder.
    - Multiple independent changes get individual PRs, not one omnibus.
 6. **Defer out-of-scope work to Linear**: file tickets in triage, no priority set, and link them in the PR body.
 7. **After the PR exists**: monitor CI and fix failures, and handle review comments (use `pr-comment-handler`). Matt merges manually; do not merge unless he says to.
+
+## PR title
+
+Write the title in plain language, so someone scanning a list of PRs understands what changed without opening it. Keep the repo's conventional-commit prefix when it uses one; everything after the prefix reads like a sentence a person would say out loud.
+
+Say what changed and, where it fits, the effect. Do not describe the implementation, and never lean on a ticket ID, a codename, or a file path to carry the meaning.
+
+| Instead of                       | Write                                                  |
+| -------------------------------- | ------------------------------------------------------ |
+| `fix: CHK-1042`                  | `fix: stop double-charging cards on retried checkouts` |
+| `fix: patch the retry handler`   | `fix: stop double-charging cards on retried checkouts` |
+| `refactor: update auth.ts`       | `refactor: move session checks into one middleware`    |
+| `feat: wire up the new endpoint` | `feat: let admins export a team's invoices as CSV`     |
+
+## PR body
+
+Four sections, in this order. `Changes` comes first because it is what reviewers read.
+
+### Changes
+
+An unordered list of what changed, one short line each, so the whole diff is legible in a few seconds.
+
+- One line per change, and keep it under about ten words.
+- Lead with the thing that changed, not with "Added" or "Updated".
+- No paragraphs, no nested bullets, no trailing prose. If a line needs a subordinate clause, it belongs in `Solution`.
+- Group by what a reader cares about, not by file.
+
+```markdown
+## Changes
+
+- Retried checkouts no longer double-charge
+- `charge()` deduplicates on idempotency key
+- Failed retries now surface to the user
+- Regression test for the retry path
+```
+
+### Problem
+
+What was wrong or missing.
+
+### Solution
+
+What was done, why this approach was chosen, and how it works. This is where the reasoning and the walls of text go, not in `Changes`.
+
+### Testing
+
+How to validate, plus screenshots for UI states when applicable (use the repo's screenshot convention if one exists in AGENTS.md).
 
 ## Standing style rules (repeat offenders)
 
