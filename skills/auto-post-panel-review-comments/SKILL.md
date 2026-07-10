@@ -179,7 +179,10 @@ and Linear links stay anchored to the reviewed code). Only re-resolve
 **Comment body shape** (verbatim from `post-panel-review-comments`):
 
 - The finding body **verbatim**. No severity, no priority, no
-  panelist/agent attribution.
+  panelist/agent attribution. In particular, strip any `[LOW]` / `[MEDIUM]`
+  / `[HIGH]` grade `panel-review` prefixed onto the finding. It never
+  appears on the PR (a LOW becomes the `Small / Optional polish:` prefix
+  below; everything else posts with no grade at all).
 - When the fix is a **clean drop-in replacement for the commented
   line(s)**, render it as a mergeable suggestion:
 
@@ -232,6 +235,12 @@ and blob deep-link, then the same body shape — except a suggestion
 work in top-level comments). Per-finding and automatic; never drop a
 rejected comment. See `post-panel-review-comments` → "Falling back to a
 top-level comment".
+
+**These per-finding fallbacks are the _only_ top-level comments this skill
+posts. Never post an overall review-summary / overview comment on the PR**:
+no "N findings across the panel", no risk recap, no verdict. Each finding
+is its own comment; the summary belongs to the caller's chat report, not
+the PR. A summary comment on the PR is a bug, not a courtesy.
 
 ## Dedupe — one pass, at post time
 

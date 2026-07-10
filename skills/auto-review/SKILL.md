@@ -129,8 +129,25 @@ saw. With the SHA pinned, comments anchor to exactly what was reviewed
 gate #7 separately withholds the approval. It posts the legitimate findings
 to the PR (mergeable suggestion / prose / body-only), `+1`s anything a bot
 already raised, routes uncertain / out-of-PR-scope findings to Linear, and
-honors routing overrides. All of that — the bar, dedupe, fallback, Linear
-rules, zero-touch behavior — is defined in that skill; use it verbatim.
+honors routing overrides. All of that (the bar, dedupe, fallback, Linear
+rules, zero-touch behavior, **and the comment format**) is defined in that
+skill; use it verbatim.
+
+**Posting goes through `auto-post-panel-review-comments` and nothing else.**
+Do not post the `panel-review` synthesis to the PR directly, and do not use
+a built-in review/comment path (`/review`, `/code-review --comment`, or a
+`gh pr review` body) to place the findings. Two failure modes to refuse
+outright, because they are what a raw synthesis dump produces:
+
+- **No severity-tagged comments.** `panel-review` labels findings `[LOW]`,
+  `[MEDIUM]`, `[HIGH]` in its synthesis; those tags never reach the PR.
+  `auto-post` strips them (a LOW becomes a `Small / Optional polish:`
+  prefix, everything else posts the finding prose verbatim with no grade).
+- **No summary / overview comment on the PR.** `auto-post` posts one
+  comment per finding, never a top-level "review summary" recap. The
+  consolidated summary is the step-4 report in chat, not a PR comment. The
+  only top-level comments allowed are `auto-post`'s per-finding fallback
+  when GitHub rejects an inline anchor.
 
 Posting happens **regardless** of whether the PR will be approved: clean
 PRs may still have polish comments worth leaving, and non-clean PRs need
@@ -290,6 +307,11 @@ Three honest limits on that autonomy:
 - **Don't reimplement the sub-skills.** Call `panel-review`,
   `auto-post-panel-review-comments`, and `approve-pr`. The wiring + the
   gate are the only things this skill adds.
+- **Never dump the synthesis onto the PR.** All posting goes through
+  `auto-post-panel-review-comments`. No `[LOW]`/`[MEDIUM]`/`[HIGH]`-tagged
+  comments (those tags are panel-review's internal grading, stripped before
+  posting) and no top-level "review summary" comment. One comment per
+  finding, and the recap lives in the chat report. See step 2.
 - **Coverage below 75% blocks approval.** The flaky local CLIs sometimes
   exit non-zero (`database is locked`, timeouts). One panelist dropping out
   of a four-panel run (3/4 = 75%) still clears the coverage gate as long as

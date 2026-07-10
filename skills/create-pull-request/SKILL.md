@@ -5,7 +5,7 @@ description: Open a GitHub pull request for the current work, with a plain-langu
 
 # create-pull-request
 
-Open one pull request that a human can read. The mechanics (branch, push, `gh pr create`) are the easy part; the point of this skill is that the title says what changed and the body leads with a scannable list, so a reviewer knows what they are looking at before they open the diff.
+Open one pull request that a human can read. The title says what changed, and the body leads with a scannable list, so a reviewer knows what they are looking at before they open the diff. The steps below cover the mechanics: branch, push, write the title and body, `gh pr create`.
 
 Derive everything from the real work, not from your memory of the conversation. Read the diff and the commit messages; a summary written from memory drifts from what actually shipped.
 
