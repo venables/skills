@@ -48,12 +48,18 @@ yourself. Act, then report what you did.
 Fetching the comments is the one fiddly part, so a script handles it.
 Everything else is a plain `gh` call you can run inline.
 
-**Fetch** — `scripts/fetch_pr_comments.sh <pr>` emits every open thread +
-any review summary bodies as one JSON document. (It exists because the
-REST endpoint doesn't expose per-thread `isResolved`, so the script runs
-a GraphQL query and shapes the result.) Resolved and outdated threads are
-dropped by default — usually noise; `--include-resolved` /
-`--include-outdated` if you need them. Read its header for the full shape.
+**Fetch** — `scripts/fetch_pr_comments.sh <pr> --include-outdated` emits
+every _unresolved_ thread + any review summary bodies as one JSON
+document. (It exists because the REST endpoint doesn't expose per-thread
+`isResolved`, so the script runs a GraphQL query and shapes the result.)
+Always pass `--include-outdated`: a thread goes **outdated** exactly when
+the code it flagged has since changed — which is usually because the
+concern was already fixed in an earlier round, and the thread was just
+never resolved. Those are the already-addressed threads this skill exists
+to close, so you want them in the set (each tagged `is_outdated: true`,
+so you can tell them from fresh comments). Resolved threads stay dropped
+(`--include-resolved` if you ever need them). Read its header for the
+full shape.
 
 Each comment in that output carries a `database_id` (numeric) and a
 `node_id`; each thread carries a `thread_id`. It also flags `is_bot`
@@ -102,13 +108,24 @@ gh api graphql -F threadId="<thread_id>" -f query='
    - **Fix it** when the comment points at a real, in-scope problem.
      Follow the _spirit_ of the comment — reviewers locate problems more
      reliably than they prescribe solutions.
+   - **Resolve it as already-addressed** when the concern is genuinely
+     handled in the current code — fixed in an earlier commit, made moot
+     by another change, or the author already said "fixed in <sha>." You
+     make no change this round, but this is **not** a decline: reply
+     pointing at where/how it's handled, then **resolve the thread**.
+     Leaving an already-fixed thread open is the litter this skill exists
+     to clear. An `is_outdated: true` thread is the common case here —
+     the code it flagged moved, usually because the fix landed — so
+     verify against the current code and resolve; only if it went
+     outdated for an unrelated reason and the concern still stands do you
+     treat it as a live comment.
    - **Defer it** when the fix is genuinely worth doing but doesn't
      belong in this PR (a broader refactor, a follow-up feature, a
      piggy-backed "we should also..."). File a Linear ticket so it isn't
      lost.
-   - **Decline it** when the comment is wrong, stale, or already handled.
-     A clear "no, because X" respects the reviewer more than a silent
-     non-fix or a hedge.
+   - **Decline it** when the comment is wrong or misguided. A clear "no,
+     because X" respects the reviewer more than a silent non-fix or a
+     hedge.
 
 3. **Make the fixes and push.** Commit each fix on its own — one logical
    change per commit, conventional-commit form, scope matching the repo's
@@ -122,6 +139,9 @@ gh api graphql -F threadId="<thread_id>" -f query='
    - _Fixed:_ `Fixed in <short-sha> — <what you actually did>.` The short
      SHA is a clickable link in GitHub; the summary tells the reviewer
      whether your fix matches their intent without opening the diff.
+   - _Already addressed:_ note where it's handled — the commit that fixed
+     it if you can find it (`git log -S` / `git blame` the line), else a
+     one-liner on how the current code covers the concern — then resolve.
    - _Deferred:_ link the Linear ticket and give a one-line reason it's a
      follow-up. Keep it honest — reviewers can tell when they're being
      brushed off.
@@ -166,6 +186,13 @@ the user which comments you'd have deferred so they can file them.
 - **One commit per comment**, even when several touch the same file —
   keeps revert granularity per comment and lets each reply name the exact
   SHA that fixed it.
+- **Outdated ≠ resolved.** GitHub marks a thread _outdated_ when its
+  anchored lines change; it stays _unresolved_ until someone clicks
+  resolve. So a comment whose fix already landed sits there outdated and
+  open indefinitely — verify it against the current code and resolve it,
+  don't leave it hanging. These are what `--include-outdated` surfaces.
 - **Resolve only what you genuinely handled.** Don't resolve a thread you
   declined if you think the reviewer may reasonably push back — leave that
-  one open after replying so they can respond.
+  one open after replying so they can respond. But an already-addressed
+  thread _is_ handled (the fix just landed in a prior round, not this
+  one) — resolve it.

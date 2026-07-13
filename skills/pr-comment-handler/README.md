@@ -33,8 +33,8 @@ Everything else — which comments deserve a fix, what the fix is, what's out of
 
 ## What it does
 
-- Fetches every open review thread (resolved/outdated dropped by default).
-- For each comment, decides **fix**, **defer**, or **decline** on its own.
+- Fetches every unresolved review thread, including outdated ones (a thread goes outdated when its code changed, usually because the fix already landed).
+- For each comment, decides **fix**, **already-addressed** (reply + resolve, no change this round), **defer**, or **decline** on its own.
 - Commits each fix separately (one commit per comment), pushes, and replies `Fixed in <sha> — <summary>`.
 - For deferrals: files a Linear ticket (no priority — that's the receiving team's call) and replies with the link.
 - For declines: replies with a short, honest rationale.

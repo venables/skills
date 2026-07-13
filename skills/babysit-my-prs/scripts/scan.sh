@@ -24,11 +24,15 @@
 #     ]
 #   }
 #
-# "reviewComments" counts unresolved, not-outdated review threads that carry a
-# comment from someone other than you, plus non-dismissed review-summary bodies
-# from someone other than you. Bot threads are counted (pr-comment-handler still
-# triages them); the exact Fix/decline call is that skill's job, this is only a
-# has-anything-to-do gate.
+# "reviewComments" counts unresolved review threads that carry a comment from
+# someone other than you, plus non-dismissed review-summary bodies from someone
+# other than you. Outdated-but-unresolved threads are counted on purpose: a
+# thread goes outdated when the code it flagged changed — usually because the
+# concern was already fixed in an earlier round but nobody clicked resolve — and
+# those loose threads are exactly what a sweep should close. Skipping them left
+# already-fixed comments unresolved forever. Bot threads are counted
+# (pr-comment-handler still triages them); the exact Fix/decline call is that
+# skill's job, this is only a has-anything-to-do gate.
 #
 # Usage:
 #   scan.sh [--repo owner/name]
@@ -94,7 +98,7 @@ while read -r num; do
   rc="$(printf '%s' "$g" | jq --arg me "$me" '
     (.data.repository.pullRequest // {}) as $p
     | ([ ($p.reviewThreads.nodes // [])[]
-         | select((.isResolved | not) and (.isOutdated | not))
+         | select(.isResolved | not)
          | select([ (.comments.nodes // [])[] | (.author.login // "") ] | any(. != $me)) ] | length)
     + ([ ($p.reviews.nodes // [])[]
          | select(((.body // "") | gsub("\\s"; "") | length) > 0
