@@ -1,13 +1,13 @@
 ---
 name: find-work
-description:
-  Sweep the Linear backlog for tickets an agent can act on now. Closes tickets
+description: Sweep the Linear backlog for tickets an agent can act on now. Closes tickets
   that shipped without being marked done (with evidence and PR links), and picks
   up small well-specified tickets end to end — own branch per ticket, frequent
   commits, a review loop, then a PR whose body explains the problem, the
   solution, and how to validate it. Use when asked to "find work", "look through
-  Linear for things you can handle", "triage the backlog", or "pick up a
-  ticket".
+  Linear for things you can handle", "pick up a ticket", or "what can you knock
+  out from the backlog". Not for grooming the board itself (closing stale
+  tickets, deduping, iceboxing) — that is backlog-sweep.
 ---
 
 # Find Work

@@ -9,7 +9,7 @@ report so the next sweep is incremental instead of a re-triage.
 ## Install
 
 ```bash
-npx skills add catena-labs/dev-skills --skill find-work
+npx skills add venables/skills --skill find-work
 ```
 
 ## How to use it
@@ -18,8 +18,8 @@ Just ask Claude Code in plain English:
 
 - "find work"
 - "look through Linear for things you can handle"
-- "triage the backlog"
 - "pick up a ticket"
+- "what can you knock out from the backlog?"
 
 ## What it does
 
