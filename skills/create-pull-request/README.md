@@ -1,6 +1,6 @@
 # create-pull-request
 
-Open a GitHub pull request that a human can actually skim: a plain-language title, and a body that leads with a short Changes list before the Problem, Solution, and Testing prose. The reusable PR-opening procedure the `ship` playbook delegates to, usable on its own when you just want a PR opened.
+Open a GitHub pull request that a human can actually skim: a plain-language title, and a body that leads with a short Changes list before the reasoning (Problem/Solution, or a Goal for net-new features) and Testing. The reusable PR-opening procedure the `ship` playbook delegates to, usable on its own when you just want a PR opened.
 
 ## Install
 
@@ -25,7 +25,7 @@ Ask Claude Code in plain English once the work is committed:
 - **Confirms the branch first.** Refuses to open a PR from `main`/`master`, and commits or asks about uncommitted work rather than sweeping it in.
 - **Derives the title and body from the real work.** Reads the diff and commit messages instead of your memory of the conversation, which drifts from what actually shipped.
 - **Writes a plain-language title.** Says what changed and its effect, keeps the repo's conventional-commit prefix, and never lets a ticket ID, codename, or file path carry the meaning.
-- **Leads the body with a Changes list.** One short line per change, so a reviewer sees the shape of the diff before reading Problem, Solution, and Testing.
+- **Leads the body with a Changes list.** One short line per change, so a reviewer sees the shape of the diff before reading the reasoning (Problem/Solution for a fix, or a single Goal section for a net-new feature) and Testing.
 - **Honors the repo's PR template.** When `.github/pull_request_template.md` exists, it fills that in rather than imposing its own structure.
 - **Opens the PR and reports the URL.** Supports `--draft`, and never merges for you.
 

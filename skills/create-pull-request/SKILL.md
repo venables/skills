@@ -1,6 +1,6 @@
 ---
 name: create-pull-request
-description: Open a GitHub pull request for the current work, with a plain-language title and a body a human can skim (a Changes list, then Problem, Solution, Testing). Use whenever the user says "open a PR", "PR this", "raise a pull request", "put up a PR for this", "ship this as a PR", or the work is committed and it is time to open one. Auto-detects the base branch and derives the title and body from the actual diff and commits, not from memory of the conversation. Honors a repo's `.github/pull_request_template.md` when present. This is the reusable PR-opening procedure the `ship` playbook delegates to; use it directly when you just want a PR opened without running the whole build-and-ship loop. Do NOT use to update review comments on an existing PR (`pr-comment-handler`), to get a PR mergeable (`babysit-pr`), or to review a diff (`panel-review`).
+description: Open a GitHub pull request for the current work, with a plain-language title and a body a human can skim (a Changes list, then Problem/Solution or a Goal for net-new features, then Testing). Use whenever the user says "open a PR", "PR this", "raise a pull request", "put up a PR for this", "ship this as a PR", or the work is committed and it is time to open one. Auto-detects the base branch and derives the title and body from the actual diff and commits, not from memory of the conversation. Honors a repo's `.github/pull_request_template.md` when present. This is the reusable PR-opening procedure the `ship` playbook delegates to; use it directly when you just want a PR opened without running the whole build-and-ship loop. Do NOT use to update review comments on an existing PR (`pr-comment-handler`), to get a PR mergeable (`babysit-pr`), or to review a diff (`panel-review`).
 ---
 
 # create-pull-request
@@ -73,13 +73,14 @@ An unordered list of what changed, one short line each, so the whole diff is leg
 - Regression test for the retry path
 ```
 
-### Problem
+### Problem / Solution, or Goal
 
-What was wrong or missing.
+The middle of the body carries the reasoning and any longer prose (not `Changes`). Pick the framing that fits the change instead of always reaching for Problem/Solution:
 
-### Solution
+- **Fixing or changing existing behavior** → **Problem** (what was wrong or missing) then **Solution** (what was done, why this approach over alternatives, and how it works).
+- **A net-new feature or capability**, where nothing was broken → a single **Goal** section: what this enables, why it is worth doing, and how it works. Forcing a net-new feature into "Problem: this did not exist yet" reads as boilerplate; state the goal instead.
 
-What was done, why this approach was chosen, and how it works. This is where the reasoning and any longer prose go, not in `Changes`.
+When unsure, ask whether the change fixes something (Problem/Solution) or adds something (Goal).
 
 ### Testing
 
@@ -109,6 +110,8 @@ gh pr create --base <default-branch> --head "$(git branch --show-current)" \
 EOF
 )"
 ```
+
+For a net-new feature, swap the `## Problem` and `## Solution` sections for a single `## Goal` section.
 
 - Use `--draft` when the user asked for a draft, or when the work is not ready for review.
 - One PR per independent change. If the branch carries several unrelated changes, that is a sign to split them, not to write one omnibus PR.

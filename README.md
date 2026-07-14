@@ -33,13 +33,13 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 
 ## Building and shipping
 
-| Skill                                               | Description                                                                                                                                                                                                                                                                  |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [ship](./skills/ship)                               | The standing build-to-merged-PR playbook: fresh branch, small commits, a panel review after each phase, sync with main, then a PR with a real Problem / Solution / Testing body                                                                                              |
-| [create-pull-request](./skills/create-pull-request) | Open a PR a human can skim: a plain-language title and a body that leads with a short Changes list before Problem / Solution / Testing. Derives both from the diff and commits, honors a repo PR template, and is what `ship` delegates PR-opening to                        |
-| [tdd-workflow](./skills/tdd-workflow)               | Enforce test-driven development on new features, bug fixes, and refactors, aiming at 80%+ coverage across unit, integration, and E2E tests                                                                                                                                   |
-| [verify](./skills/verify)                           | Run the verification loop after a feature or any significant change, checking code quality and conformance before you call it done                                                                                                                                           |
-| [startkit](./skills/startkit)                       | Scaffold a new strict-TypeScript project from the baseline standard — pnpm, native-TS Node, oxlint (type-aware) + oxfmt, vitest, ultra-strict tsconfig, kebab-case filenames, and a GitHub Actions check on PRs and main. Monorepo/CLI/web variants stubbed in `references/` |
+| Skill                                               | Description                                                                                                                                                                                                                                                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ship](./skills/ship)                               | The standing build-to-merged-PR playbook: fresh branch, small commits, a panel review after each phase, sync with main, then a PR with a real body (Problem / Solution, or a Goal for a net-new feature) and Testing                                                                                    |
+| [create-pull-request](./skills/create-pull-request) | Open a PR a human can skim: a plain-language title and a body that leads with a short Changes list before the reasoning (Problem / Solution, or a Goal for net-new features) and Testing. Derives both from the diff and commits, honors a repo PR template, and is what `ship` delegates PR-opening to |
+| [tdd-workflow](./skills/tdd-workflow)               | Enforce test-driven development on new features, bug fixes, and refactors, aiming at 80%+ coverage across unit, integration, and E2E tests                                                                                                                                                              |
+| [verify](./skills/verify)                           | Run the verification loop after a feature or any significant change, checking code quality and conformance before you call it done                                                                                                                                                                      |
+| [startkit](./skills/startkit)                       | Scaffold a new strict-TypeScript project from the baseline standard — pnpm, native-TS Node, oxlint (type-aware) + oxfmt, vitest, ultra-strict tsconfig, kebab-case filenames, and a GitHub Actions check on PRs and main. Monorepo/CLI/web variants stubbed in `references/`                            |
 
 ## Working the Linear backlog
 
@@ -56,6 +56,12 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 | [frontend-patterns](./skills/frontend-patterns) | Frontend patterns for React and Next.js: state management, performance, and UI practice                                                                                        |
 | [security-review](./skills/security-review)     | The checklist and patterns to reach for when adding auth, handling user input, working with secrets, creating API endpoints, or touching payment paths                         |
 | [find-docs](./skills/find-docs)                 | Fetch current documentation, API references, and examples for any library, framework, SDK, or CLI tool, rather than trusting training data that may predate the latest release |
+
+## Utilities
+
+| Skill               | Description                                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [bro](./skills/bro) | Restate the last message in plain human language, no jargon — one human talking to another. User-invoked only. Credit: [Dillon Mulroy](https://github.com/dmmulroy) |
 
 ## Living elsewhere
 
