@@ -41,6 +41,12 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 | [verify](./skills/verify)                           | Run the verification loop after a feature or any significant change, checking code quality and conformance before you call it done                                                                                                                                           |
 | [startkit](./skills/startkit)                       | Scaffold a new strict-TypeScript project from the baseline standard — pnpm, native-TS Node, oxlint (type-aware) + oxfmt, vitest, ultra-strict tsconfig, kebab-case filenames, and a GitHub Actions check on PRs and main. Monorepo/CLI/web variants stubbed in `references/` |
 
+## Working the Linear backlog
+
+| Skill                           | Description                                                                                                                                                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [find-work](./skills/find-work) | Sweep the Linear backlog and act on it — close tickets that already shipped (with evidence and PR links) and pick up small well-specified ones as one branch + reviewed PR each. Grooming is `backlog-sweep` |
+
 ## Standards and reference
 
 | Skill                                           | Description                                                                                                                                                                    |
