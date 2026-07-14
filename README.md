@@ -43,9 +43,10 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 
 ## Working the Linear backlog
 
-| Skill                           | Description                                                                                                                                                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [find-work](./skills/find-work) | Sweep the Linear backlog and act on it — close tickets that already shipped (with evidence and PR links) and pick up small well-specified ones as one branch + reviewed PR each. Grooming is `backlog-sweep` |
+| Skill                                   | Description                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [find-work](./skills/find-work)         | Sweep the Linear backlog and act on it — close tickets that already shipped (with evidence and PR links) and pick up small well-specified ones as one branch + reviewed PR each. Grooming is `backlog-sweep`                                                                                                 |
+| [backlog-sweep](./skills/backlog-sweep) | Keep the Linear board truthful — inventory every open ticket, cross-reference git and PRs to find shipped-but-open work, verify claims against the code, merge duplicates, icebox aging tickets, and triage the Triage queue. Auto-applies hard-evidence actions, batches judgment calls into one checkpoint |
 
 ## Standards and reference
 
