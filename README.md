@@ -49,25 +49,20 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 
 ## Standards and reference
 
-| Skill                                           | Description                                                                                                                                                                    |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [coding-standards](./skills/coding-standards)   | Universal coding standards and patterns for TypeScript, JavaScript, React, and Node.js                                                                                         |
-| [backend-patterns](./skills/backend-patterns)   | Backend architecture, API design, database optimization, and server-side practice for Node.js, Express, and Next.js API routes                                                 |
-| [frontend-patterns](./skills/frontend-patterns) | Frontend patterns for React and Next.js: state management, performance, and UI practice                                                                                        |
-| [security-review](./skills/security-review)     | The checklist and patterns to reach for when adding auth, handling user input, working with secrets, creating API endpoints, or touching payment paths                         |
-| [find-docs](./skills/find-docs)                 | Fetch current documentation, API references, and examples for any library, framework, SDK, or CLI tool, rather than trusting training data that may predate the latest release |
+| Skill                                             | Description                                                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [coding-standards](./skills/coding-standards)     | Universal coding standards and patterns for TypeScript, JavaScript, React, and Node.js                                                                                         |
+| [backend-patterns](./skills/backend-patterns)     | Backend architecture, API design, database optimization, and server-side practice for Node.js, Express, and Next.js API routes                                                 |
+| [frontend-patterns](./skills/frontend-patterns)   | Frontend patterns for React and Next.js: state management, performance, and UI practice                                                                                        |
+| [security-review](./skills/security-review)       | The checklist and patterns to reach for when adding auth, handling user input, working with secrets, creating API endpoints, or touching payment paths                         |
+| [find-docs](./skills/find-docs)                   | Fetch current documentation, API references, and examples for any library, framework, SDK, or CLI tool, rather than trusting training data that may predate the latest release |
+| [optimize-agents-md](./skills/optimize-agents-md) | Create, audit, or prune `AGENTS.md` / `CLAUDE.md` so every AI coding tool reads one lean source of truth. Handles monorepos, too                                               |
 
 ## Utilities
 
 | Skill               | Description                                                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [bro](./skills/bro) | Restate the last message in plain human language, no jargon — one human talking to another. User-invoked only. Credit: [Dillon Mulroy](https://github.com/dmmulroy) |
-
-## Living elsewhere
-
-| Skill                                                                                               | Description                                                                                          |
-| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [optimize-agents-md](https://github.com/catena-labs/dev-skills/tree/main/skills/optimize-agents-md) | Optimize your AGENTS.md (and CLAUDE.md) files according to best practices. Works with monorepos, too |
 
 ## License
 
