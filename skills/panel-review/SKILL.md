@@ -83,15 +83,15 @@ When _not_ to use:
      (`panel-review: scope vs <base>: N commits, M files changed, K insertions(+), L deletions(-)`)
      matches the PR's own commit count before trusting the synthesized findings.
 2. **Pick panelists.** Every panelist is a CLI backend (codex / claude /
-   opencode) driven through the `oneshot` CLI — one uniform interface that maps
+   opencode) driven through the `anyagent` CLI — one uniform interface that maps
    the script's generic flags onto each backend's native argv, so the script no
-   longer builds per-backend command lines. `oneshot` must be on `PATH` (or set
-   `ONESHOT_BIN`), and the underlying backend CLI must be installed too. Default:
+   longer builds per-backend command lines. `anyagent` must be on `PATH` (or set
+   `ANYAGENT_BIN`), and the underlying backend CLI must be installed too. Default:
    every backend CLI found on `PATH`. The user may name a subset, choose a model
    per reviewer, or run the same backend more than once on different models. Pass
    each reviewer as `--panelist backend[/approach][:model]` (repeatable); the
    backend is codex/claude/opencode, the optional `:model` is forwarded to that
-   CLI (via `oneshot --model`), and the optional `/approach` tells that panelist
+   CLI (via `anyagent --model`), and the optional `/approach` tells that panelist
    _how_ to review (see **Review approaches** below). Examples:
    - "panel review with claude on opus-4.8" → `--panelist claude:opus-4.8`
    - "panel review with claude and two opencode reviewers, qwen and glm" →
@@ -110,11 +110,11 @@ When _not_ to use:
 4. **Mode is automatic — there is no `--checkout` decision.** PR / `--base` /
    `--commit` reviews always run worktree-isolated with write/exec permissions
    (one throwaway worktree per panelist, pinned to the target ref; passed to the
-   panelist as `oneshot --cwd` with `--dangerously-skip-permissions`). Panelists
+   panelist as `anyagent --cwd` with `--dangerously-skip-permissions`). Panelists
    can read code, grep callers, and run tests / build / lint commands. Network
    and GitHub-write actions are forbidden by the prompt. `--uncommitted` /
    `--staged` reviews stay local-only and read-only against the working tree (a
-   per-backend read-only flag forwarded through `oneshot` — codex
+   per-backend read-only flag forwarded through `anyagent` — codex
    `--sandbox=read-only`, claude `--permission-mode=plan`, opencode
    `--agent=plan`) — no worktree, no exec. The `--checkout` flag is accepted for
    backward compat but is now a deprecated no-op; do not pass it.
@@ -599,22 +599,22 @@ standard finding shape.
 CLI flags, env vars, and examples: run
 `bash skills/panel-review/panel-review.sh --help`.
 
-Every panelist is spawned as `oneshot -H <backend> ...`. `oneshot` is the
+Every panelist is spawned as `anyagent -H <backend> ...`. `anyagent` is the
 uniform driver over claude / codex / opencode: the script passes generic flags
 (`-H`, `--model`, `--cwd`, `--dangerously-skip-permissions`, `--timeout`) and
-`oneshot` translates them into each CLI's native argv. It must be on `PATH`
-(install with `brew install venables/tap/oneshot`; override the binary with
-`ONESHOT_BIN`); point the underlying CLI per backend with
-`oneshot`'s own `ONESHOT_CLAUDE_BIN` / `ONESHOT_CODEX_BIN` /
-`ONESHOT_OPENCODE_BIN`.
+`anyagent` translates them into each CLI's native argv. It must be on `PATH`
+(install with `brew install venables/tap/anyagent`; override the binary with
+`ANYAGENT_BIN`); point the underlying CLI per backend with
+`anyagent`'s own `ANYAGENT_CLAUDE_BIN` / `ANYAGENT_CODEX_BIN` /
+`ANYAGENT_OPENCODE_BIN`.
 
 The script handles two cases internally:
 
 - **Local targets** (`--uncommitted` / `--staged`): builds the diff with `git`,
   embeds it in the prompt, runs panelists read-only against the working tree
-  (per-backend read-only flag forwarded through `oneshot`).
+  (per-backend read-only flag forwarded through `anyagent`).
 - **Committed targets** (`--pr` / `--base` / `--commit`): one throwaway git
-  worktree per panelist pinned to the target ref (passed as `oneshot --cwd`),
+  worktree per panelist pinned to the target ref (passed as `anyagent --cwd`),
   panelists run with `--dangerously-skip-permissions` so they can grep callers,
   run tests, and install dev deps. PR targets additionally use an
   instruction-style prompt where panelists fetch the diff and existing review

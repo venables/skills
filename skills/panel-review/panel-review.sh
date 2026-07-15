@@ -2,10 +2,10 @@
 # panel-review.sh — fan a code review out to multiple local CLI agents in parallel
 #                   and print their raw outputs for the coordinator to synthesize.
 #
-# Each panelist is one `oneshot -H <backend> ...` subprocess with no shared state.
-# oneshot is one uniform non-interactive interface over claude / codex / opencode,
+# Each panelist is one `anyagent -H <backend> ...` subprocess with no shared state.
+# anyagent is one uniform non-interactive interface over claude / codex / opencode,
 # so this script never builds a per-backend command line — it passes generic flags
-# (-H, --model, --cwd, --dangerously-skip-permissions, --timeout) and oneshot maps
+# (-H, --model, --cwd, --dangerously-skip-permissions, --timeout) and anyagent maps
 # them onto each CLI's native argv. Captured outputs land in a tempdir; the path is
 # printed at the end.
 set -uo pipefail
@@ -43,20 +43,20 @@ CODEX_MODEL="${CODEX_MODEL:-}"
 CLAUDE_MODEL="${CLAUDE_MODEL:-}"
 OPENCODE_MODEL="${OPENCODE_MODEL:-}"
 
-# ----- oneshot driver (env) -----
-# Every panelist is invoked as `oneshot -H <backend> ...`. oneshot is the single
+# ----- anyagent driver (env) -----
+# Every panelist is invoked as `anyagent -H <backend> ...`. anyagent is the single
 # uniform interface over the backend CLIs, so this script passes generic flags and
-# lets oneshot build each CLI's native argv. Point ONESHOT_BIN at a specific
+# lets anyagent build each CLI's native argv. Point ANYAGENT_BIN at a specific
 # build (e.g. a release binary not yet on PATH). Override the underlying CLI per
-# backend with oneshot's own ONESHOT_CLAUDE_BIN / ONESHOT_CODEX_BIN /
-# ONESHOT_OPENCODE_BIN.
-ONESHOT_BIN="${ONESHOT_BIN:-oneshot}"
+# backend with anyagent's own ANYAGENT_CLAUDE_BIN / ANYAGENT_CODEX_BIN /
+# ANYAGENT_OPENCODE_BIN.
+ANYAGENT_BIN="${ANYAGENT_BIN:-anyagent}"
 
 # Per-backend permission flag for LOCAL (uncommitted/staged) reviews of the real
-# working tree, forwarded verbatim through oneshot to the underlying CLI. Deep
-# (pr/base/commit) reviews use oneshot's uniform --dangerously-skip-permissions
-# instead. Inline `=value` form so oneshot forwards each as a single token — a
-# space-separated value for a flag oneshot doesn't itself recognise would be
+# working tree, forwarded verbatim through anyagent to the underlying CLI. Deep
+# (pr/base/commit) reviews use anyagent's uniform --dangerously-skip-permissions
+# instead. Inline `=value` form so anyagent forwards each as a single token — a
+# space-separated value for a flag anyagent doesn't itself recognise would be
 # swallowed into the prompt.
 readonly_flag() {
   case "$1" in
@@ -75,7 +75,7 @@ readonly_flag() {
 #   - ID:      unique handle used for filesystem paths (worktree-$id, $id.out),
 #              dedup, section headers, and todo/heartbeat matching. Sanitized so
 #              it is safe to interpolate into paths and `git worktree add`.
-#   - BACKEND: codex | claude | opencode — selects the oneshot -H harness and
+#   - BACKEND: codex | claude | opencode — selects the anyagent -H harness and
 #              which *_MODEL default applies.
 #   - MODEL:   optional per-panelist model id, passed through to the CLI. Empty
 #              means "fall back to the backend's *_MODEL env default (if any)".
@@ -254,10 +254,10 @@ Environment:
                           Default model for a panelist of that backend whose spec
                           did not pin an explicit model (e.g. a bare --panelist
                           claude, or an auto-detected panelist).
-  ONESHOT_BIN            The oneshot binary that drives every panelist (default:
-                          oneshot on PATH). Override the underlying CLI per backend
-                          with oneshot's own ONESHOT_CLAUDE_BIN / ONESHOT_CODEX_BIN
-                          / ONESHOT_OPENCODE_BIN.
+  ANYAGENT_BIN            The anyagent binary that drives every panelist (default:
+                          anyagent on PATH). Override the underlying CLI per backend
+                          with anyagent's own ANYAGENT_CLAUDE_BIN / ANYAGENT_CODEX_BIN
+                          / ANYAGENT_OPENCODE_BIN.
   PANEL_REVIEW_MAX_DIFF_BYTES
                           Cap inline diff size (default 200000). Only applies to
                           diff-embed targets (uncommitted/staged/base/commit). PR
@@ -265,7 +265,7 @@ Environment:
   PANEL_REVIEW_POLL_GRACE_SECS
                           Extra seconds beyond a panelist's --timeout before the
                           poll loop's wall-clock backstop force-fails a panelist
-                          that never wrote a result (default 120). Covers oneshot
+                          that never wrote a result (default 120). Covers anyagent
                           startup + teardown; raise it on slow machines.
 
 Exit codes:
@@ -417,7 +417,7 @@ if [[ ${#PANEL_IDS[@]} -eq 0 && -n "${PANEL_REVIEW_PANELISTS:-}" ]]; then
   fi
 fi
 
-# Still nothing? Auto-detect every backend CLI on PATH. oneshot drives each one,
+# Still nothing? Auto-detect every backend CLI on PATH. anyagent drives each one,
 # but the underlying CLI still has to be installed, so probe the bare backend name.
 # Auto-detected panelists carry no explicit model, so they inherit the backend's
 # *_MODEL default (if any).
@@ -428,9 +428,9 @@ if [[ ${#PANEL_IDS[@]} -eq 0 ]]; then
 fi
 [[ ${#PANEL_IDS[@]} -gt 0 ]] || die "no backend CLIs found on PATH (looked for codex, claude, opencode)"
 
-# oneshot is the uniform driver for every panelist; without it nothing can run.
-command -v "$ONESHOT_BIN" >/dev/null 2>&1 || \
-  die "oneshot not found on PATH (looked for '$ONESHOT_BIN'). Install it with 'brew install venables/tap/oneshot', or point ONESHOT_BIN at the binary (e.g. ONESHOT_BIN=~/dev/cli/oneshot/target/release/oneshot)."
+# anyagent is the uniform driver for every panelist; without it nothing can run.
+command -v "$ANYAGENT_BIN" >/dev/null 2>&1 || \
+  die "anyagent not found on PATH (looked for '$ANYAGENT_BIN'). Install it with 'brew install venables/tap/anyagent', or point ANYAGENT_BIN at the binary (e.g. ANYAGENT_BIN=~/dev/cli/anyagent/target/release/anyagent)."
 
 # ----- Output dir -----
 if [[ -z "$OUT_DIR" ]]; then
@@ -785,20 +785,20 @@ fi
 # Read prompt once into memory so each child reads from there.
 PROMPT_CONTENT="$(cat "$PROMPT_FILE")"
 
-# Per-panelist timeouts are enforced by oneshot itself (--timeout SECS, exit 124
+# Per-panelist timeouts are enforced by anyagent itself (--timeout SECS, exit 124
 # on expiry), so there is no external timeout wrapper here.
 
 # ----- Build each panelist's argv -----
 #
-# Every panelist is one `oneshot -H <backend> ...` invocation; oneshot translates
+# Every panelist is one `anyagent -H <backend> ...` invocation; anyagent translates
 # the generic flags below into each CLI's native argv. Two permission tiers, keyed
 # off CHECKOUT_MODE (set whenever the target is pr/base/commit — anything with a
 # real ref to materialize):
 #
 #   Local mode  (uncommitted/staged): read-only. Panelists run from the user's
 #               working tree with a per-backend read-only flag (readonly_flag)
-#               forwarded through oneshot; they cannot exec anything that writes.
-#   Worktree mode (pr/base/commit):   oneshot --dangerously-skip-permissions.
+#               forwarded through anyagent; they cannot exec anything that writes.
+#   Worktree mode (pr/base/commit):   anyagent --dangerously-skip-permissions.
 #               Panelists run inside a throwaway per-panelist worktree (passed as
 #               --cwd) pinned to the target ref and can read code, grep callers,
 #               run tests/build commands. Network/destructive actions are gated by
@@ -817,10 +817,10 @@ build_argv() {
   [[ -n "$approach" ]] && prompt="$PROMPT_CONTENT"$'\n\n'"$(cat "$APPROACHES_DIR/$approach.md")"
 
   # --output-format text so stdout is exactly the panelist's final message (its
-  # first line is the mandated `Model:` line the synthesizer reads). oneshot owns
+  # first line is the mandated `Model:` line the synthesizer reads). anyagent owns
   # the per-panelist timeout and exits 124 on expiry, matching the rc handling in
   # print_section / panelist_error_reason.
-  argv=("$ONESHOT_BIN" -H "$backend" --output-format text --timeout "$TIMEOUT_SECS")
+  argv=("$ANYAGENT_BIN" -H "$backend" --output-format text --timeout "$TIMEOUT_SECS")
   [[ -n "$model" ]] && argv+=(--model "$model")
 
   if (( CHECKOUT_MODE )); then
@@ -834,7 +834,7 @@ build_argv() {
   # Feed the prompt on stdin, not as a positional argv element. A large embedded
   # diff can push the prompt past Linux's per-argument cap (MAX_ARG_STRLEN, 128KB)
   # and make exec fail with E2BIG (macOS has no such per-arg cap, which hides it
-  # locally). oneshot reads the prompt from stdin when no positional prompt is
+  # locally). anyagent reads the prompt from stdin when no positional prompt is
   # given, and stdin has no size limit — so we write it to a file the fan-out
   # redirects into the child's stdin, and pass NO prompt in argv.
   printf '%s' "$prompt" > "$OUT_DIR/$id.prompt" \
@@ -870,15 +870,15 @@ for p in "${PANEL_IDS[@]}"; do
 
   panel_cwd="$PWD"
   (( CHECKOUT_MODE )) && panel_cwd="$OUT_DIR/worktree-$p"
-  # oneshot gets the working dir via --cwd (set in build_argv) and the prompt on
-  # stdin from the per-panelist prompt file (see build_argv). The child (oneshot)
+  # anyagent gets the working dir via --cwd (set in build_argv) and the prompt on
+  # stdin from the per-panelist prompt file (see build_argv). The child (anyagent)
   # consumes that stdin itself; the backend it drives gets a null/PTY stdin, so a
   # backend that waits on an open stdin still proceeds.
   #
-  # oneshot runs as an inner background job so we can record ITS pid ($p.apid)
-  # and, on the wall-clock backstop, signal it directly: oneshot traps SIGTERM
+  # anyagent runs as an inner background job so we can record ITS pid ($p.apid)
+  # and, on the wall-clock backstop, signal it directly: anyagent traps SIGTERM
   # and tears down its own backend process group, whereas TERMing only the wrapper
-  # subshell would orphan a wedged oneshot + backend. The rc is written
+  # subshell would orphan a wedged anyagent + backend. The rc is written
   # atomically (tmp + mv) so the poll loop can never read or clobber a
   # half-written rc.
   ( "${argv[@]}" <"$OUT_DIR/$p.prompt" >"$out" 2>"$err" & apid=$!
@@ -949,8 +949,8 @@ extract_model_label() {
 
 # Pull a one-line, human-readable failure reason out of a panelist's captured
 # stderr, so an empty/failed panelist reports *why* instead of just a bare exit
-# code. oneshot buffers the backend's own stderr and, on failure, prints its own
-# `oneshot: <error>` line and exits 124 on timeout. Order: the timeout note, then
+# code. anyagent buffers the backend's own stderr and, on failure, prints its own
+# `anyagent: <error>` line and exits 124 on timeout. Order: the timeout note, then
 # the last non-empty stderr line.
 strip_ansi() { sed $'s/\x1b\\[[0-9;]*[A-Za-z]//g'; }
 
@@ -960,9 +960,9 @@ panelist_error_reason() {
   local errf="$OUT_DIR/$p.err"
   local reason=""
   if [[ "$rc_val" == "124" ]]; then
-    reason="timed out (oneshot --timeout ${TIMEOUT_SECS}s, or orchestrator wall-clock backstop)"
+    reason="timed out (anyagent --timeout ${TIMEOUT_SECS}s, or orchestrator wall-clock backstop)"
   fi
-  # Prefer the panelist's own stderr tail — oneshot prints `oneshot: <error>` on
+  # Prefer the panelist's own stderr tail — anyagent prints `anyagent: <error>` on
   # failure, which is more specific than any exit-code guess.
   if [[ -z "$reason" && -s "$errf" ]]; then
     reason="$(strip_ansi <"$errf" 2>/dev/null | grep -v '^[[:space:]]*$' \
@@ -1047,7 +1047,7 @@ DONE_COUNT=0
 # Wall-clock backstop for the poll loop. A panelist is normally "done" when its
 # child subshell writes .rc. Without the old external `timeout` wrapper, two edge
 # cases could otherwise hang this loop forever: the subshell being SIGKILLed
-# before it writes .rc, or oneshot wedging past its own --timeout. oneshot caps
+# before it writes .rc, or anyagent wedging past its own --timeout. anyagent caps
 # each panelist at TIMEOUT_SECS; the grace (PANEL_REVIEW_POLL_GRACE_SECS, default
 # 120) covers its startup + teardown across parallel panelists. `SECONDS` is
 # bash's seconds-since-start counter.
@@ -1074,12 +1074,12 @@ while (( DONE_COUNT < TOTAL )); do
         # Wrapper fully exited; its .rc is now in final state.
         [[ -s "$OUT_DIR/$p.rc" ]] || echo "137" >"$OUT_DIR/$p.rc"   # gone without a result (SIGKILL/OOM)
       elif (( SECONDS > POLL_DEADLINE )); then
-        # Deadline passed with the wrapper still alive. TERM the oneshot child
+        # Deadline passed with the wrapper still alive. TERM the anyagent child
         # (it tears down its backend group), then the wrapper, and synthesize a
         # 124 only if no real rc landed in the meantime.
         apid=""
         [[ -s "$OUT_DIR/$p.apid" ]] && apid="$(cat "$OUT_DIR/$p.apid" 2>/dev/null || true)"
-        # TERM oneshot so it tears down its own backend group, then hard-kill the
+        # TERM anyagent so it tears down its own backend group, then hard-kill the
         # wrapper (our own subshell) so it can no longer publish a competing .rc.
         # That makes the synthetic 124 the single, deterministic writer — the only
         # way .rc is non-empty here is a real code the wrapper wrote just before
