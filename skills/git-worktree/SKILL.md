@@ -3,8 +3,8 @@ name: git-worktree
 description: >
   Create, reuse, or remove a git worktree via the `wt` CLI, so every
   worktree lands in the same predictable place —
-  `<repo-parent>/<repo-name>-<branch-slug>`, flat and alongside the repo,
-  sharing the repo-name prefix (e.g. `skills` -> `skills-fix-auth`). Use
+  `<repo-parent>/<repo-name>.<branch-slug>`, flat and alongside the repo,
+  sharing the repo-name prefix (e.g. `skills` -> `skills.fix-auth`). Use
   whenever the user or another skill says things like "make a worktree",
   "create a worktree for this branch", "spin up a worktree", "new
   worktree off main", "give each PR its own worktree", "check that branch
@@ -21,15 +21,14 @@ by shelling out to the **`wt`** CLI rather than hand-rolling
 `git worktree add`. Every worktree this skill creates lives at:
 
 ```
-<repo-parent>/<repo-name>-<branch-slug>
+<repo-parent>/<repo-name>.<branch-slug>
 ```
 
 flat, **alongside** the repo (a sibling directory, not nested inside it),
-sharing the repo's name as a prefix, with `/` in the branch replaced by
-`-`. So in `~/dev/venables/skills` a worktree for branch `fix/auth`
-becomes `~/dev/venables/skills-fix-auth`. `wt` owns this path math, the
-`.worktreeinclude`/`.gitignore` copying, and its add/remove hooks — don't
-re-derive any of it.
+sharing the repo's name as a prefix joined by a `.`, with `/` in the
+branch replaced by `-`. So in `~/dev/venables/skills` a worktree for
+branch `fix/auth` becomes `~/dev/venables/skills.fix-auth`. `wt` owns this
+path math and its single `post-create` hook — don't re-derive any of it.
 
 ## Requires `wt`
 
@@ -77,9 +76,8 @@ wt done            # remove the CURRENT worktree, return to main
   the directory goes, so a later `wt create <branch>` just recreates it.
 - Never removes the main working copy.
 
-Other useful commands: `wt list` (show all worktrees), `wt cleanup`
-(interactively remove non-main worktrees), `wt back` (print the main
-worktree path).
+Other useful commands: `wt list` (show all worktrees) and `wt back`
+(print the main worktree path).
 
 ## Setting up many worktrees for parallel work
 
@@ -91,12 +89,12 @@ across agents can fail on the lock.
 
 ## Common mistakes
 
-| Mistake                                        | Reality                                                                     |
-| ---------------------------------------------- | --------------------------------------------------------------------------- |
-| `git worktree add <ad-hoc path>`               | Use `wt create <branch>` so it lands in `<repo>-<slug>` with hooks/copying  |
-| Nesting worktrees inside the repo              | They go **alongside** it: a sibling `<repo>-<slug>` dir, never under it     |
-| Hand-rolling a fallback when `wt` is missing   | Stop and report — the whole point is one consistent path; don't diverge     |
-| Racing `wt create` across parallel agents      | `git worktree add` locks the repo; create serially, then fan out            |
-| `wt create` for a remote-only branch, no fetch | `wt` doesn't fetch; `git fetch origin` first so `origin/<branch>` exists    |
-| `wt rm -f` to get past a dirty worktree        | The refusal is the safety; only force when the caller wants to discard work |
-| Parsing stderr for the path                    | The path is on **stdout**; stderr is progress. Capture stdout only          |
+| Mistake                                        | Reality                                                                      |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| `git worktree add <ad-hoc path>`               | Use `wt create <branch>` so it lands in `<repo>.<slug>` and runs post-create |
+| Nesting worktrees inside the repo              | They go **alongside** it: a sibling `<repo>.<slug>` dir, never under it      |
+| Hand-rolling a fallback when `wt` is missing   | Stop and report — the whole point is one consistent path; don't diverge      |
+| Racing `wt create` across parallel agents      | `git worktree add` locks the repo; create serially, then fan out             |
+| `wt create` for a remote-only branch, no fetch | `wt` doesn't fetch; `git fetch origin` first so `origin/<branch>` exists     |
+| `wt rm -f` to get past a dirty worktree        | The refusal is the safety; only force when the caller wants to discard work  |
+| Parsing stderr for the path                    | The path is on **stdout**; stderr is progress. Capture stdout only           |
