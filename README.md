@@ -50,14 +50,13 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 
 ## Standards and reference
 
-| Skill                                             | Description                                                                                                                                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [coding-standards](./skills/coding-standards)     | Universal coding standards and patterns for TypeScript, JavaScript, React, and Node.js                                                                                         |
-| [backend-patterns](./skills/backend-patterns)     | Backend architecture, API design, database optimization, and server-side practice for Node.js, Express, and Next.js API routes                                                 |
-| [frontend-patterns](./skills/frontend-patterns)   | Frontend patterns for React and Next.js: state management, performance, and UI practice                                                                                        |
-| [security-review](./skills/security-review)       | The checklist and patterns to reach for when adding auth, handling user input, working with secrets, creating API endpoints, or touching payment paths                         |
-| [find-docs](./skills/find-docs)                   | Fetch current documentation, API references, and examples for any library, framework, SDK, or CLI tool, rather than trusting training data that may predate the latest release |
-| [optimize-agents-md](./skills/optimize-agents-md) | Create, audit, or prune `AGENTS.md` / `CLAUDE.md` so every AI coding tool reads one lean source of truth. Handles monorepos, too                                               |
+| Skill                                             | Description                                                                                                                                            |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [coding-standards](./skills/coding-standards)     | Universal coding standards and patterns for TypeScript, JavaScript, React, and Node.js                                                                 |
+| [backend-patterns](./skills/backend-patterns)     | Backend architecture, API design, database optimization, and server-side practice for Node.js, Express, and Next.js API routes                         |
+| [frontend-patterns](./skills/frontend-patterns)   | Frontend patterns for React and Next.js: state management, performance, and UI practice                                                                |
+| [security-review](./skills/security-review)       | The checklist and patterns to reach for when adding auth, handling user input, working with secrets, creating API endpoints, or touching payment paths |
+| [optimize-agents-md](./skills/optimize-agents-md) | Create, audit, or prune `AGENTS.md` / `CLAUDE.md` so every AI coding tool reads one lean source of truth. Handles monorepos, too                       |
 
 ## Utilities
 
