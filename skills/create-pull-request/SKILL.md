@@ -9,6 +9,21 @@ Open one pull request that a human can read. The title says what changed, and th
 
 Derive everything from the real work, not from your memory of the conversation. Read the diff and the commit messages; a summary written from memory drifts from what actually shipped.
 
+## Language
+
+Write every word that lands on GitHub in ASD-STE100 Simplified Technical English — the title, the body, and any comment you add afterwards.
+
+- Write short sentences. Keep an instruction to 20 words. Keep a statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Write "the retry loop drops the second charge", not "the second charge is dropped by the retry loop".
+- Use simple tenses. Write "the test fails", not "the test has been failing".
+- Use one word for one meaning. Do not change "function" to "method" to "routine" in the same text.
+- Use the simplest word that is correct. Remove jargon, idioms, metaphors, and figures of speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at job initiation".
+- Keep a paragraph to six sentences or fewer.
+
+A reviewer must understand the PR on the first read. Long sentences and clever phrasing both cost them a second read.
+
 ## 1. Confirm the branch
 
 Never open a PR from the default branch.

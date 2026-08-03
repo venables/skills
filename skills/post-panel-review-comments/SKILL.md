@@ -36,6 +36,32 @@ but never paraphrases the body). If the user wants softer wording on a
 specific finding, they should ask the agent to rewrite it before
 triggering this skill.
 
+## Language
+
+Write every word **you** author in ASD-STE100 Simplified Technical
+English — the `**Location:**` line, any `Some more info:` reply, the
+Linear title and description, and the report.
+
+- Write short sentences. Keep an instruction to 20 words. Keep a
+  statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Write "the handler drops the second charge", not
+  "the second charge is dropped by the handler".
+- Use simple tenses. Write "the test fails", not "the test has been
+  failing".
+- Use one word for one meaning. Do not change "function" to "method" to
+  "routine" in the same text.
+- Use the simplest word that is correct. Remove jargon, idioms,
+  metaphors, and figures of speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at
+  job initiation".
+- Keep a paragraph to six sentences or fewer.
+
+This rule does **not** override the no-rewrite rule above: a finding
+body still posts verbatim. `panel-review` holds its panelists to the
+same style, so a finding from the panel already reads this way. If a
+hand-pasted finding does not, post it as given and say so in the report.
+
 ## Detecting the Linear option
 
 Before triaging, decide whether you can actually create Linear tickets

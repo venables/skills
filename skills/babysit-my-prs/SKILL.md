@@ -36,6 +36,13 @@ each run `babysit-pr`. The per-PR conflict-and-comment engine lives in
 no failing CI gets no work done on it. The scanner already filters these out —
 you act only on the `actionable` list.
 
+**Language:** every word the sweep puts on GitHub or Linear is written in
+ASD-STE100 Simplified Technical English — short sentences (20 words for an
+instruction, 25 for a statement), one idea per sentence, active voice, simple
+tenses, one word for one meaning, and no jargon, idioms, or metaphors.
+`babysit-pr` and `pr-comment-handler` carry the full rule; pass it down to each
+subagent so a parallel sweep reads as one voice.
+
 ## 1. Discover (one read-only command)
 
 ```bash

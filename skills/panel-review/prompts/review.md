@@ -142,6 +142,28 @@ NO_FINDINGS — <one sentence on what you checked>
 i.e. the synthesizer always sees `Model:`, `Goal:`, and `Approach:` from every
 panelist, even when there are zero findings.
 
+## How to write
+
+Write every finding in ASD-STE100 Simplified Technical English. A coordinator
+posts these straight onto a pull request, so the author reads your words, not a
+summary of them.
+
+- Write short sentences. Keep an instruction to 20 words. Keep a statement to 25
+  words.
+- Put one idea in each sentence.
+- Use the active voice. Write "the retry path bypasses the guard", not "the
+  guard is bypassed by the retry path".
+- Use simple tenses. Write "the test fails", not "the test has been failing".
+- Use one word for one meaning. Do not change "function" to "method" to
+  "routine" in the same text.
+- Use the simplest word that is correct. Remove jargon, idioms, metaphors, and
+  figures of speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at job
+  initiation".
+
+Keep the fixed labels above exactly as specified (`Model:`, `Goal (clear):`,
+`Approach (sound):`, `[HIGH]`, `Fix:`) — the coordinator matches on them.
+
 ## Hard constraints
 
 - Local writes inside the workspace described in the `## Workspace` section the

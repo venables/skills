@@ -19,6 +19,7 @@ This is the standard lifecycle for every non-trivial change. The user should not
 
 ## Standing style rules (repeat offenders)
 
+- Every word that lands on GitHub or Linear — PR title, PR body, review comment, reply, ticket — is written in ASD-STE100 Simplified Technical English: short sentences (20 words for an instruction, 25 for a statement), one idea per sentence, active voice, simple tenses, one word for one meaning, no jargon, no idioms, no metaphors. `create-pull-request` and `pr-comment-handler` each carry the full rule.
 - Multi-line comments are block comments (`/* ... */` or JSDoc), never stacked `//` lines.
 - No emojis anywhere. No emdashes in prose.
 - oxlint runs typechecking in these repos (tsgolint/tsgo); do not reach for eslint or raw tsc.

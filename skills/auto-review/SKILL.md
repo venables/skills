@@ -42,6 +42,25 @@ is clean enough to stamp. Everything about how reviews run, how comments
 are shaped/posted/deduped, and how approvals are submitted lives in those
 three skills; this file owns only the wiring and the gate.
 
+## Language
+
+Each sub-skill holds its own text to ASD-STE100 Simplified Technical
+English; let it. Write the same way for anything **this** skill adds —
+the step-4 report, and any extra PR comment you post for a
+finding-based blocker (see step 2):
+
+- Write short sentences. Keep an instruction to 20 words. Keep a
+  statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Use simple tenses.
+- Use one word for one meaning.
+- Use the simplest word that is correct. Remove jargon, idioms,
+  metaphors, and figures of speech.
+- Do not make a noun out of a verb.
+
+The two canonical approval bodies under "Approval body" are fixed
+strings. Use them exactly as written; do not restyle them.
+
 ## Prerequisite
 
 This skill orchestrates `panel-review` and

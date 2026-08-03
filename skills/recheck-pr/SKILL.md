@@ -49,6 +49,31 @@ threads, and approve. You do **not** fix the author's code, commit, or
 push — if a finding is still outstanding, that's the author's work, and
 your job is to say so clearly and leave the thread open.
 
+## Language
+
+Write every word that lands on GitHub in ASD-STE100 Simplified Technical
+English — each thread reply, each new inline comment, and the approval
+body.
+
+- Write short sentences. Keep an instruction to 20 words. Keep a
+  statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Write "the retry path bypasses the guard", not
+  "the guard is bypassed by the retry path".
+- Use simple tenses. Write "the test fails", not "the test has been
+  failing".
+- Use one word for one meaning. Do not change "function" to "method" to
+  "routine" in the same text.
+- Use the simplest word that is correct. Remove jargon, idioms,
+  metaphors, and figures of speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at
+  job initiation".
+- Keep a paragraph to six sentences or fewer.
+
+An outstanding reply has to tell the author exactly what to do next.
+`The retry path at line 88 still bypasses the guard.` does that in one
+sentence; a paragraph of hedging does not.
+
 ## Prerequisite: the prior review must be in context
 
 This skill re-checks a review that already happened. It needs two things

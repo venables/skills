@@ -38,6 +38,31 @@ enough to execute standalone. When in doubt about a shared detail (exact
 payload fields, suggestion anchoring, fallback body), follow
 `post-panel-review-comments`.
 
+## Language
+
+Write every word **you** author in ASD-STE100 Simplified Technical
+English — the `**Location:**` line, any `Some more info:` reply, the
+Linear title and description, and the report.
+
+- Write short sentences. Keep an instruction to 20 words. Keep a
+  statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Write "the handler drops the second charge", not
+  "the second charge is dropped by the handler".
+- Use simple tenses. Write "the test fails", not "the test has been
+  failing".
+- Use one word for one meaning. Do not change "function" to "method" to
+  "routine" in the same text.
+- Use the simplest word that is correct. Remove jargon, idioms,
+  metaphors, and figures of speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at
+  job initiation".
+- Keep a paragraph to six sentences or fewer.
+
+The finding body still posts **verbatim** — this rule governs the text
+around it, not the finding itself. `panel-review` holds its panelists to
+the same style, so a finding from the panel already reads this way.
+
 ## What "auto" changes
 
 |                    | `post-panel-review-comments`               | this skill                               |

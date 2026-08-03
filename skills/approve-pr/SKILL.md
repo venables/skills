@@ -29,6 +29,22 @@ is that it's quick and a little fun: no message needed, just a stamp.
   tiny phrase, nothing else).
 - **Message given** → approve with that message, verbatim.
 
+## Language
+
+The default bodies below are a fixed list, and a user-supplied message
+goes on verbatim — neither is yours to rewrite. Any **other** prose you
+put on GitHub (a plain comment review when self-approval is blocked, for
+example) is written in ASD-STE100 Simplified Technical English:
+
+- Write short sentences. Keep an instruction to 20 words. Keep a
+  statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Use simple tenses.
+- Use one word for one meaning.
+- Use the simplest word that is correct. Remove jargon, idioms,
+  metaphors, and figures of speech.
+- Do not make a noun out of a verb.
+
 ## Inputs
 
 1. **PR ref** — usually omitted. Auto-detect from the current branch:

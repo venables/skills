@@ -43,6 +43,29 @@ out of scope, when something is just wrong — is yours to decide. You
 read PRs all day; don't ask the user to re-adjudicate what you can judge
 yourself. Act, then report what you did.
 
+## Language
+
+Write every word that lands on GitHub or Linear in ASD-STE100 Simplified
+Technical English — each reply, each commit message, and each ticket.
+
+- Write short sentences. Keep an instruction to 20 words. Keep a
+  statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Write "the handler drops the second charge", not
+  "the second charge is dropped by the handler".
+- Use simple tenses. Write "the test fails", not "the test has been
+  failing".
+- Use one word for one meaning. Do not change "function" to "method" to
+  "routine" in the same text.
+- Use the simplest word that is correct. Remove jargon, idioms,
+  metaphors, and figures of speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at
+  job initiation".
+- Keep a paragraph to six sentences or fewer.
+
+This matters most when you decline a comment. A short, plain sentence
+reads as a reason. A long, hedged one reads as a brush-off.
+
 ## What you're working with
 
 Fetching the comments is the one fiddly part, so a script handles it.

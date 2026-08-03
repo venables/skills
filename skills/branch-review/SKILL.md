@@ -31,3 +31,15 @@ Read the full diff, then read enough surrounding code to judge correctness in co
 ## Output format
 
 For each finding: severity (must-fix / should-fix / nit), `file:line`, one-sentence issue, and a concrete suggested fix (code when short). End with a verdict: ready to PR, or what blocks it. No filler praise; if it is clean, say so in one line.
+
+## Language
+
+Write every finding in ASD-STE100 Simplified Technical English. These findings often become PR comments later, so write them as if the author will read them.
+
+- Write short sentences. Keep an instruction to 20 words. Keep a statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Write "the retry path bypasses the guard", not "the guard is bypassed by the retry path".
+- Use simple tenses. Write "the test fails", not "the test has been failing".
+- Use one word for one meaning. Do not change "function" to "method" to "routine" in the same text.
+- Use the simplest word that is correct. Remove jargon, idioms, metaphors, and figures of speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at job initiation".

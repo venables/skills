@@ -31,6 +31,16 @@ You work **in place**, on the current checkout (a normal clone or a git
 worktree — `babysit-my-prs` calls this skill once per branch inside a
 dedicated worktree). You never create or switch worktrees yourself.
 
+## Language
+
+`pr-comment-handler` writes the thread replies and holds itself to
+ASD-STE100 Simplified Technical English; let it. Write the same way for
+anything **this** skill puts on GitHub — a merge commit message, a
+`fix:` commit, or a comment explaining a conflict you resolved: short
+sentences (20 words for an instruction, 25 for a statement), one idea
+per sentence, active voice, simple tenses, one word for one meaning, and
+no jargon, idioms, or metaphors.
+
 ## 1. Find the PR and confirm the tree
 
 Usually the PR is unstated — auto-detect it from the current branch:

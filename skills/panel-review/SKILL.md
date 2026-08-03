@@ -23,6 +23,30 @@ change, then synthesizes their findings into one report. Each panelist runs in
 its own subprocess with no shared conversation state — they only see the prompt
 and the diff.
 
+## Language
+
+Write the synthesis in ASD-STE100 Simplified Technical English. The panelist
+prompts hold the panelists to the same style, so their findings arrive this way
+and stay readable when a downstream skill posts them to a PR verbatim.
+
+- Write short sentences. Keep an instruction to 20 words. Keep a statement to 25
+  words.
+- Put one idea in each sentence.
+- Use the active voice. Write "the retry path bypasses the guard", not "the
+  guard is bypassed by the retry path".
+- Use simple tenses. Write "the test fails", not "the test has been failing".
+- Use one word for one meaning. Do not change "function" to "method" to
+  "routine" in the same text.
+- Use the simplest word that is correct. Remove jargon, idioms, metaphors, and
+  figures of speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at job
+  initiation".
+- Keep a paragraph to six sentences or fewer.
+
+Two exceptions. Quoted panelist text stays verbatim, and the fixed labels this
+skill defines (`Goal (clear):`, `Approach (questionable):`, `[HIGH]`, the
+section headings) stay exactly as written — the downstream skills match on them.
+
 ## When to use
 
 - User says "panel review", types `/panel-review`, asks for "second opinions on

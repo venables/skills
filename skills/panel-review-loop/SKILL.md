@@ -200,6 +200,18 @@ Keep "Left alone" specific — the reason is the whole point of reporting it. "O
 scope: belongs in the auth refactor" beats "low priority". This section is how the user
 audits your judgment, so make it easy to disagree with.
 
+Write the report — and any commit message or PR text the loop produces — in ASD-STE100
+Simplified Technical English:
+
+- Write short sentences. Keep an instruction to 20 words. Keep a statement to 25 words.
+- Put one idea in each sentence.
+- Use the active voice. Use simple tenses.
+- Use one word for one meaning. Do not change "function" to "method" to "routine" in the
+  same text.
+- Use the simplest word that is correct. Remove jargon, idioms, metaphors, and figures of
+  speech.
+- Do not make a noun out of a verb. Write "when the job starts", not "at job initiation".
+
 ## Gotchas
 
 - **Cost compounds.** Every round is a full `panel-review` fan-out. Batch all worthwhile

@@ -35,6 +35,11 @@ It does **not** reimplement reviewing. `auto-review` does the review, the
 posting, and the approval gate; `recheck-pr` does the second look;
 `approve-pr` does the stamp. This skill only wires them to the tab.
 
+Those skills also own the wording of everything that reaches GitHub, and
+each holds itself to ASD-STE100 Simplified Technical English. Write the
+one-line outcome you emit before closing the tab the same way: a short
+sentence, active voice, no jargon.
+
 ```
 pr-review-tab <PR> [--babysit <interval>]
       │
