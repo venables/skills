@@ -2,9 +2,9 @@
 
 Fan a code review out to multiple local CLI coding agents (codex, claude,
 opencode) running in parallel, then synthesize their findings into one report.
-Every panelist is driven through `anyagent` — one uniform non-interactive
+Every panelist is driven through `dash-p` — one uniform non-interactive
 interface over the backend CLIs — so the script passes generic flags and lets
-`anyagent` build each CLI's native command line. For PR / branch / commit
+`dash-p` build each CLI's native command line. For PR / branch / commit
 targets, each agent gets its own isolated git worktree so they can run tests and
 chase downstream effects in parallel without stepping on each other.
 
@@ -16,9 +16,9 @@ npx skills add venables/skills --skill panel-review
 
 ## Requirements
 
-- **`anyagent`** on `PATH` (or set `ANYAGENT_BIN` to the binary) — it's the
+- **`dash-p`** on `PATH` (or set `DASHP_BIN` to the binary) — it's the
   uniform driver every panelist runs through. Install it with
-  `brew install venables/tap/anyagent`.
+  `brew install venabots/tap/dash-p`.
 - At least one backend CLI installed: `codex`, `claude`, and/or `opencode`. The
   panel auto-detects whichever are on `PATH`.
 - `git`, and `gh` for PR targets.
@@ -46,7 +46,7 @@ panelists from your phrasing:
 Each reviewer is a `--panelist backend[/approach][:model]` spec, where backend
 is `codex`, `claude`, or `opencode`, and the optional `:model` is the **exact**
 model id that backend's CLI expects. It's forwarded verbatim through
-`anyagent --model` (which becomes `-m` for codex/opencode, `--model` for claude).
+`dash-p --model` (which becomes each CLI's own model flag).
 The same backend can appear multiple times with different models, so you can fan
 one change out to several models — even several models of the same tool.
 
@@ -121,7 +121,7 @@ sections.
   up front, then local-only worktree creation; everything is torn down on exit.
 - `--uncommitted` / `--staged` skip the worktree (the changes only exist
   locally) and panelists run read-only against your working tree.
-- Spawns each panelist as a fresh, non-interactive `anyagent` subprocess with no
+- Spawns each panelist as a fresh, non-interactive `dash-p` subprocess with no
   shared conversation state — the whole point is independent second opinions.
 - Streams each panelist's section back as it lands, then groups results into a
   synthesized summary with overview / risk / goal-check / consensus / unique

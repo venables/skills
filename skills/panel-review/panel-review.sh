@@ -2,12 +2,12 @@
 # panel-review.sh — fan a code review out to multiple local CLI agents in parallel
 #                   and print their raw outputs for the coordinator to synthesize.
 #
-# Each panelist is one `anyagent -H <backend> ...` subprocess with no shared state.
-# anyagent is one uniform non-interactive interface over claude / codex / opencode,
+# Each panelist is one `dash-p -H <backend> ...` subprocess with no shared state.
+# dash-p is one uniform non-interactive interface over claude / codex / opencode,
 # so this script never builds a per-backend command line — it passes generic flags
-# (-H, --model, --cwd, --dangerously-skip-permissions, --timeout) and anyagent maps
-# them onto each CLI's native argv. Captured outputs land in a tempdir; the path is
-# printed at the end.
+# (-H, --model, --cwd, --perms, --dangerously-skip-permissions, --timeout) and
+# dash-p maps them onto each CLI's native argv. Captured outputs land in a tempdir;
+# the path is printed at the end.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,28 +43,13 @@ CODEX_MODEL="${CODEX_MODEL:-}"
 CLAUDE_MODEL="${CLAUDE_MODEL:-}"
 OPENCODE_MODEL="${OPENCODE_MODEL:-}"
 
-# ----- anyagent driver (env) -----
-# Every panelist is invoked as `anyagent -H <backend> ...`. anyagent is the single
+# ----- dash-p driver (env) -----
+# Every panelist is invoked as `dash-p -H <backend> ...`. dash-p is the single
 # uniform interface over the backend CLIs, so this script passes generic flags and
-# lets anyagent build each CLI's native argv. Point ANYAGENT_BIN at a specific
-# build (e.g. a release binary not yet on PATH). Override the underlying CLI per
-# backend with anyagent's own ANYAGENT_CLAUDE_BIN / ANYAGENT_CODEX_BIN /
-# ANYAGENT_OPENCODE_BIN.
-ANYAGENT_BIN="${ANYAGENT_BIN:-anyagent}"
-
-# Per-backend permission flag for LOCAL (uncommitted/staged) reviews of the real
-# working tree, forwarded verbatim through anyagent to the underlying CLI. Deep
-# (pr/base/commit) reviews use anyagent's uniform --dangerously-skip-permissions
-# instead. Inline `=value` form so anyagent forwards each as a single token — a
-# space-separated value for a flag anyagent doesn't itself recognise would be
-# swallowed into the prompt.
-readonly_flag() {
-  case "$1" in
-    codex)    echo "--sandbox=read-only" ;;
-    claude)   echo "--permission-mode=plan" ;;
-    opencode) echo "--agent=plan" ;;
-  esac
-}
+# lets dash-p build each CLI's native argv. Point DASHP_BIN at a specific build
+# (e.g. a release binary not yet on PATH). Override the underlying claude binary
+# with dash-p's own DASHP_CLAUDE_BIN.
+DASHP_BIN="${DASHP_BIN:-dash-p}"
 
 # ----- Panelist registry (parallel arrays; bash 3.2 has no associative arrays) -----
 #
@@ -75,7 +60,7 @@ readonly_flag() {
 #   - ID:      unique handle used for filesystem paths (worktree-$id, $id.out),
 #              dedup, section headers, and todo/heartbeat matching. Sanitized so
 #              it is safe to interpolate into paths and `git worktree add`.
-#   - BACKEND: codex | claude | opencode — selects the anyagent -H harness and
+#   - BACKEND: codex | claude | opencode — selects the dash-p -H harness and
 #              which *_MODEL default applies.
 #   - MODEL:   optional per-panelist model id, passed through to the CLI. Empty
 #              means "fall back to the backend's *_MODEL env default (if any)".
@@ -254,10 +239,9 @@ Environment:
                           Default model for a panelist of that backend whose spec
                           did not pin an explicit model (e.g. a bare --panelist
                           claude, or an auto-detected panelist).
-  ANYAGENT_BIN            The anyagent binary that drives every panelist (default:
-                          anyagent on PATH). Override the underlying CLI per backend
-                          with anyagent's own ANYAGENT_CLAUDE_BIN / ANYAGENT_CODEX_BIN
-                          / ANYAGENT_OPENCODE_BIN.
+  DASHP_BIN               The dash-p binary that drives every panelist (default:
+                          dash-p on PATH). Override the underlying claude binary
+                          with dash-p's own DASHP_CLAUDE_BIN.
   PANEL_REVIEW_MAX_DIFF_BYTES
                           Cap inline diff size (default 200000). Only applies to
                           diff-embed targets (uncommitted/staged/base/commit). PR
@@ -265,7 +249,7 @@ Environment:
   PANEL_REVIEW_POLL_GRACE_SECS
                           Extra seconds beyond a panelist's --timeout before the
                           poll loop's wall-clock backstop force-fails a panelist
-                          that never wrote a result (default 120). Covers anyagent
+                          that never wrote a result (default 120). Covers dash-p
                           startup + teardown; raise it on slow machines.
 
 Exit codes:
@@ -417,7 +401,7 @@ if [[ ${#PANEL_IDS[@]} -eq 0 && -n "${PANEL_REVIEW_PANELISTS:-}" ]]; then
   fi
 fi
 
-# Still nothing? Auto-detect every backend CLI on PATH. anyagent drives each one,
+# Still nothing? Auto-detect every backend CLI on PATH. dash-p drives each one,
 # but the underlying CLI still has to be installed, so probe the bare backend name.
 # Auto-detected panelists carry no explicit model, so they inherit the backend's
 # *_MODEL default (if any).
@@ -428,9 +412,9 @@ if [[ ${#PANEL_IDS[@]} -eq 0 ]]; then
 fi
 [[ ${#PANEL_IDS[@]} -gt 0 ]] || die "no backend CLIs found on PATH (looked for codex, claude, opencode)"
 
-# anyagent is the uniform driver for every panelist; without it nothing can run.
-command -v "$ANYAGENT_BIN" >/dev/null 2>&1 || \
-  die "anyagent not found on PATH (looked for '$ANYAGENT_BIN'). Install it with 'brew install venables/tap/anyagent', or point ANYAGENT_BIN at the binary (e.g. ANYAGENT_BIN=~/dev/cli/anyagent/target/release/anyagent)."
+# dash-p is the uniform driver for every panelist; without it nothing can run.
+command -v "$DASHP_BIN" >/dev/null 2>&1 || \
+  die "dash-p not found on PATH (looked for '$DASHP_BIN'). Install it with 'brew install venabots/tap/dash-p', or point DASHP_BIN at the binary (e.g. DASHP_BIN=~/dev/cli/dash-p/target/release/dash-p)."
 
 # ----- Output dir -----
 if [[ -z "$OUT_DIR" ]]; then
@@ -785,20 +769,24 @@ fi
 # Read prompt once into memory so each child reads from there.
 PROMPT_CONTENT="$(cat "$PROMPT_FILE")"
 
-# Per-panelist timeouts are enforced by anyagent itself (--timeout SECS, exit 124
+# Per-panelist timeouts are enforced by dash-p itself (--timeout SECS, exit 20
 # on expiry), so there is no external timeout wrapper here.
 
 # ----- Build each panelist's argv -----
 #
-# Every panelist is one `anyagent -H <backend> ...` invocation; anyagent translates
+# Every panelist is one `dash-p -H <backend> ...` invocation; dash-p translates
 # the generic flags below into each CLI's native argv. Two permission tiers, keyed
 # off CHECKOUT_MODE (set whenever the target is pr/base/commit — anything with a
 # real ref to materialize):
 #
-#   Local mode  (uncommitted/staged): read-only. Panelists run from the user's
-#               working tree with a per-backend read-only flag (readonly_flag)
-#               forwarded through anyagent; they cannot exec anything that writes.
-#   Worktree mode (pr/base/commit):   anyagent --dangerously-skip-permissions.
+#   Local mode  (uncommitted/staged): dash-p --perms read-only. Panelists run from
+#               the user's working tree; dash-p maps the tier onto each CLI's own
+#               mechanism (codex: an OS sandbox; claude: a write/exec tool denial
+#               list; opencode: no auto-approve, so its default gating stands).
+#               Do NOT hand-roll per-backend flags here — dash-p only forwards
+#               unrecognised flags to claude, so a codex/opencode sandbox flag
+#               passed that way is silently dropped.
+#   Worktree mode (pr/base/commit):   dash-p --dangerously-skip-permissions.
 #               Panelists run inside a throwaway per-panelist worktree (passed as
 #               --cwd) pinned to the target ref and can read code, grep callers,
 #               run tests/build commands. Network/destructive actions are gated by
@@ -817,10 +805,10 @@ build_argv() {
   [[ -n "$approach" ]] && prompt="$PROMPT_CONTENT"$'\n\n'"$(cat "$APPROACHES_DIR/$approach.md")"
 
   # --output-format text so stdout is exactly the panelist's final message (its
-  # first line is the mandated `Model:` line the synthesizer reads). anyagent owns
-  # the per-panelist timeout and exits 124 on expiry, matching the rc handling in
+  # first line is the mandated `Model:` line the synthesizer reads). dash-p owns
+  # the per-panelist timeout and exits 20 on expiry, matching the rc handling in
   # print_section / panelist_error_reason.
-  argv=("$ANYAGENT_BIN" -H "$backend" --output-format text --timeout "$TIMEOUT_SECS")
+  argv=("$DASHP_BIN" -H "$backend" --output-format text --timeout "$TIMEOUT_SECS")
   [[ -n "$model" ]] && argv+=(--model "$model")
 
   if (( CHECKOUT_MODE )); then
@@ -828,13 +816,13 @@ build_argv() {
     argv+=(--cwd "$panel_cwd" --dangerously-skip-permissions)
   else
     panel_cwd="$PWD"
-    argv+=(--cwd "$panel_cwd" "$(readonly_flag "$backend")")
+    argv+=(--cwd "$panel_cwd" --perms read-only)
   fi
 
   # Feed the prompt on stdin, not as a positional argv element. A large embedded
   # diff can push the prompt past Linux's per-argument cap (MAX_ARG_STRLEN, 128KB)
   # and make exec fail with E2BIG (macOS has no such per-arg cap, which hides it
-  # locally). anyagent reads the prompt from stdin when no positional prompt is
+  # locally). dash-p reads the prompt from stdin when no positional prompt is
   # given, and stdin has no size limit — so we write it to a file the fan-out
   # redirects into the child's stdin, and pass NO prompt in argv.
   printf '%s' "$prompt" > "$OUT_DIR/$id.prompt" \
@@ -870,15 +858,15 @@ for p in "${PANEL_IDS[@]}"; do
 
   panel_cwd="$PWD"
   (( CHECKOUT_MODE )) && panel_cwd="$OUT_DIR/worktree-$p"
-  # anyagent gets the working dir via --cwd (set in build_argv) and the prompt on
-  # stdin from the per-panelist prompt file (see build_argv). The child (anyagent)
+  # dash-p gets the working dir via --cwd (set in build_argv) and the prompt on
+  # stdin from the per-panelist prompt file (see build_argv). The child (dash-p)
   # consumes that stdin itself; the backend it drives gets a null/PTY stdin, so a
   # backend that waits on an open stdin still proceeds.
   #
-  # anyagent runs as an inner background job so we can record ITS pid ($p.apid)
-  # and, on the wall-clock backstop, signal it directly: anyagent traps SIGTERM
+  # dash-p runs as an inner background job so we can record ITS pid ($p.apid)
+  # and, on the wall-clock backstop, signal it directly: dash-p traps SIGTERM
   # and tears down its own backend process group, whereas TERMing only the wrapper
-  # subshell would orphan a wedged anyagent + backend. The rc is written
+  # subshell would orphan a wedged dash-p + backend. The rc is written
   # atomically (tmp + mv) so the poll loop can never read or clobber a
   # half-written rc.
   ( "${argv[@]}" <"$OUT_DIR/$p.prompt" >"$out" 2>"$err" & apid=$!
@@ -949,8 +937,8 @@ extract_model_label() {
 
 # Pull a one-line, human-readable failure reason out of a panelist's captured
 # stderr, so an empty/failed panelist reports *why* instead of just a bare exit
-# code. anyagent buffers the backend's own stderr and, on failure, prints its own
-# `anyagent: <error>` line and exits 124 on timeout. Order: the timeout note, then
+# code. dash-p buffers the backend's own stderr and, on failure, prints its own
+# `dash-p: <error>` line and exits 20 on timeout. Order: the timeout note, then
 # the last non-empty stderr line.
 strip_ansi() { sed $'s/\x1b\\[[0-9;]*[A-Za-z]//g'; }
 
@@ -959,10 +947,12 @@ panelist_error_reason() {
   local rc_val="$2"
   local errf="$OUT_DIR/$p.err"
   local reason=""
-  if [[ "$rc_val" == "124" ]]; then
-    reason="timed out (anyagent --timeout ${TIMEOUT_SECS}s, or orchestrator wall-clock backstop)"
+  # 20 is dash-p's own timeout exit; 124 is this script's wall-clock backstop
+  # (see the poll loop below), which fires when dash-p itself never returned.
+  if [[ "$rc_val" == "20" || "$rc_val" == "124" ]]; then
+    reason="timed out (dash-p --timeout ${TIMEOUT_SECS}s, or orchestrator wall-clock backstop)"
   fi
-  # Prefer the panelist's own stderr tail — anyagent prints `anyagent: <error>` on
+  # Prefer the panelist's own stderr tail — dash-p prints `dash-p: <error>` on
   # failure, which is more specific than any exit-code guess.
   if [[ -z "$reason" && -s "$errf" ]]; then
     reason="$(strip_ansi <"$errf" 2>/dev/null | grep -v '^[[:space:]]*$' \
@@ -1047,7 +1037,7 @@ DONE_COUNT=0
 # Wall-clock backstop for the poll loop. A panelist is normally "done" when its
 # child subshell writes .rc. Without the old external `timeout` wrapper, two edge
 # cases could otherwise hang this loop forever: the subshell being SIGKILLed
-# before it writes .rc, or anyagent wedging past its own --timeout. anyagent caps
+# before it writes .rc, or dash-p wedging past its own --timeout. dash-p caps
 # each panelist at TIMEOUT_SECS; the grace (PANEL_REVIEW_POLL_GRACE_SECS, default
 # 120) covers its startup + teardown across parallel panelists. `SECONDS` is
 # bash's seconds-since-start counter.
@@ -1074,12 +1064,12 @@ while (( DONE_COUNT < TOTAL )); do
         # Wrapper fully exited; its .rc is now in final state.
         [[ -s "$OUT_DIR/$p.rc" ]] || echo "137" >"$OUT_DIR/$p.rc"   # gone without a result (SIGKILL/OOM)
       elif (( SECONDS > POLL_DEADLINE )); then
-        # Deadline passed with the wrapper still alive. TERM the anyagent child
+        # Deadline passed with the wrapper still alive. TERM the dash-p child
         # (it tears down its backend group), then the wrapper, and synthesize a
         # 124 only if no real rc landed in the meantime.
         apid=""
         [[ -s "$OUT_DIR/$p.apid" ]] && apid="$(cat "$OUT_DIR/$p.apid" 2>/dev/null || true)"
-        # TERM anyagent so it tears down its own backend group, then hard-kill the
+        # TERM dash-p so it tears down its own backend group, then hard-kill the
         # wrapper (our own subshell) so it can no longer publish a competing .rc.
         # That makes the synthetic 124 the single, deterministic writer — the only
         # way .rc is non-empty here is a real code the wrapper wrote just before

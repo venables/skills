@@ -107,15 +107,15 @@ When _not_ to use:
      (`panel-review: scope vs <base>: N commits, M files changed, K insertions(+), L deletions(-)`)
      matches the PR's own commit count before trusting the synthesized findings.
 2. **Pick panelists.** Every panelist is a CLI backend (codex / claude /
-   opencode) driven through the `anyagent` CLI — one uniform interface that maps
+   opencode) driven through the `dash-p` CLI — one uniform interface that maps
    the script's generic flags onto each backend's native argv, so the script no
-   longer builds per-backend command lines. `anyagent` must be on `PATH` (or set
-   `ANYAGENT_BIN`), and the underlying backend CLI must be installed too. Default:
+   longer builds per-backend command lines. `dash-p` must be on `PATH` (or set
+   `DASHP_BIN`), and the underlying backend CLI must be installed too. Default:
    every backend CLI found on `PATH`. The user may name a subset, choose a model
    per reviewer, or run the same backend more than once on different models. Pass
    each reviewer as `--panelist backend[/approach][:model]` (repeatable); the
    backend is codex/claude/opencode, the optional `:model` is forwarded to that
-   CLI (via `anyagent --model`), and the optional `/approach` tells that panelist
+   CLI (via `dash-p --model`), and the optional `/approach` tells that panelist
    _how_ to review (see **Review approaches** below). Examples:
    - "panel review with claude on opus-4.8" → `--panelist claude:opus-4.8`
    - "panel review with claude and two opencode reviewers, qwen and glm" →
@@ -134,13 +134,13 @@ When _not_ to use:
 4. **Mode is automatic — there is no `--checkout` decision.** PR / `--base` /
    `--commit` reviews always run worktree-isolated with write/exec permissions
    (one throwaway worktree per panelist, pinned to the target ref; passed to the
-   panelist as `anyagent --cwd` with `--dangerously-skip-permissions`). Panelists
+   panelist as `dash-p --cwd` with `--dangerously-skip-permissions`). Panelists
    can read code, grep callers, and run tests / build / lint commands. Network
    and GitHub-write actions are forbidden by the prompt. `--uncommitted` /
-   `--staged` reviews stay local-only and read-only against the working tree (a
-   per-backend read-only flag forwarded through `anyagent` — codex
-   `--sandbox=read-only`, claude `--permission-mode=plan`, opencode
-   `--agent=plan`) — no worktree, no exec. The `--checkout` flag is accepted for
+   `--staged` reviews stay local-only and read-only against the working tree
+   (`dash-p --perms read-only`, which dash-p maps onto each backend — codex an OS
+   sandbox, claude a write/exec tool denial list, opencode its default gating with
+   no auto-approve) — no worktree, no exec. The `--checkout` flag is accepted for
    backward compat but is now a deprecated no-op; do not pass it.
 5. **Run the script** (path: `skills/panel-review/panel-review.sh`). You
    **MUST** launch it as a **background Bash** (`Bash` tool with
@@ -623,22 +623,21 @@ standard finding shape.
 CLI flags, env vars, and examples: run
 `bash skills/panel-review/panel-review.sh --help`.
 
-Every panelist is spawned as `anyagent -H <backend> ...`. `anyagent` is the
+Every panelist is spawned as `dash-p -H <backend> ...`. `dash-p` is the
 uniform driver over claude / codex / opencode: the script passes generic flags
-(`-H`, `--model`, `--cwd`, `--dangerously-skip-permissions`, `--timeout`) and
-`anyagent` translates them into each CLI's native argv. It must be on `PATH`
-(install with `brew install venables/tap/anyagent`; override the binary with
-`ANYAGENT_BIN`); point the underlying CLI per backend with
-`anyagent`'s own `ANYAGENT_CLAUDE_BIN` / `ANYAGENT_CODEX_BIN` /
-`ANYAGENT_OPENCODE_BIN`.
+(`-H`, `--model`, `--cwd`, `--perms`, `--dangerously-skip-permissions`,
+`--timeout`) and `dash-p` translates them into each CLI's native argv. It must be
+on `PATH` (install with `brew install venabots/tap/dash-p`; override the binary
+with `DASHP_BIN`); override the underlying claude binary with `dash-p`'s own
+`DASHP_CLAUDE_BIN`.
 
 The script handles two cases internally:
 
 - **Local targets** (`--uncommitted` / `--staged`): builds the diff with `git`,
   embeds it in the prompt, runs panelists read-only against the working tree
-  (per-backend read-only flag forwarded through `anyagent`).
+  (`dash-p --perms read-only`).
 - **Committed targets** (`--pr` / `--base` / `--commit`): one throwaway git
-  worktree per panelist pinned to the target ref (passed as `anyagent --cwd`),
+  worktree per panelist pinned to the target ref (passed as `dash-p --cwd`),
   panelists run with `--dangerously-skip-permissions` so they can grep callers,
   run tests, and install dev deps. PR targets additionally use an
   instruction-style prompt where panelists fetch the diff and existing review
