@@ -123,11 +123,17 @@ sections.
   locally) and panelists run read-only against your working tree.
 - Spawns each panelist as a fresh, non-interactive `dash-p` subprocess with no
   shared conversation state — the whole point is independent second opinions.
+- Asks every panelist four header questions before the line-level findings:
+  `Goal:` (what the change does), `Approach:` (is it at the right layer),
+  `Purpose:` (why it should exist, and does the diff serve that reason without
+  hidden cost), and `Proof:` (what shows it works: tests in the diff, a testing
+  note, a run in the worktree). Correct code with no stated reason, or no
+  evidence it works, is surfaced as a finding, not waved through.
 - Streams each panelist's section back as it lands, then groups results into a
-  synthesized summary with overview / risk / goal-check / consensus / unique
-  findings / disagreements / action list. Every line in the summary points at
-  `file:line` with a suggested fix; for PR targets, the lines are tappable links
-  straight to the PR file view.
+  synthesized summary with overview / risk / goal, approach, purpose, and proof
+  checks / must-fix / should-fix / polish / disagreements. Every line in the
+  summary points at `file:line` with a suggested fix; for PR targets, the lines
+  are tappable links straight to the PR file view.
 
 ## Gotchas
 

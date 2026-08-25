@@ -44,8 +44,26 @@ and stay readable when a downstream skill posts them to a PR verbatim.
 - Keep a paragraph to six sentences or fewer.
 
 Two exceptions. Quoted panelist text stays verbatim, and the fixed labels this
-skill defines (`Goal (clear):`, `Approach (questionable):`, `[HIGH]`, the
-section headings) stay exactly as written — the downstream skills match on them.
+skill defines (`Goal (clear):`, `Approach (questionable):`,
+`Purpose (unknown):`, `Proof (missing):`, `[HIGH]`, the section headings) stay
+exactly as written — the downstream skills match on them.
+
+## What a review judges
+
+A change is a contribution only when all four hold. Each panelist answers each
+one in a header line, and the synthesis carries the answers forward:
+
+- `Goal:` — what the change does.
+- `Approach:` — whether it does that at the right layer.
+- `Purpose:` — why it should exist: the problem it solves, and whether the diff
+  solves that problem without a hidden cost. Correct code that hides the login
+  button still fails this.
+- `Proof:` — what shows it works: tests in the diff, a testing note, a run in
+  the worktree. Code nobody has seen work is not known to work.
+
+The line-level findings answer "is the code right". The four header lines answer
+"should this change exist, and do we know it works". Do not let a clean findings
+list stand in for the second question.
 
 ## When to use
 
@@ -262,7 +280,8 @@ When _not_ to use:
    ```
 
    **Every finding MUST include `file:line` (or a named root-cause location for
-   substantiated `Approach (questionable):` items) AND a `Fix:` line.** Drop any
+   substantiated `Approach (questionable):` items, or `PR description` for a
+   promoted `Purpose (unknown):`) AND a `Fix:` line.** Drop any
    panelist finding that lacks a concrete location or a suggested fix — those
    are too speculative to surface. If the issue itself is real, infer the
    location from the diff/PR yourself; if you cannot, leave it out.
@@ -285,6 +304,15 @@ When _not_ to use:
      `Approach (questionable):` with all three evidence components present and
      you verified them. When all-sound (or all under-evidenced), omit the
      section; `Approach: sound.` appears inline at the end of `### Risk`.
+   - `### Purpose check` — only when a panelist tagged
+     `Purpose (stated, not served):` or `Purpose (unknown):` and you verified
+     it, or when panelists disagree on the purpose. When every panelist tagged
+     `(stated, served)` or `(inferred)` with the same reason, omit the section;
+     the Overview lead already states the purpose.
+   - `### Proof check` — only when a panelist tagged `Proof (missing):` on a
+     change that alters behavior and you verified it. When every panelist
+     tagged `(shown)` or `(not needed)`, omit the section; `Proof: <evidence>.`
+     appears inline at the end of `### Risk`.
    - `### must-fix` — CRITICAL/HIGH findings. Omit if empty.
    - `### should-fix` — MEDIUM findings. Omit if empty.
    - `### polish` — LOW findings. Omit if empty.
@@ -311,20 +339,23 @@ When _not_ to use:
    commits when the user expected a 2-commit feature branch). After the target
    line, leave a blank line and write the two paragraphs below.
 
-   **Paragraph 1: lead with the goal (uncontested case only).** When all
-   panelists agreed on a clear goal (no goal-check section will be emitted),
-   open with the goal in plain human language — one sentence, no `Goal:` label,
-   no "all panelists agree" suffix. The absence of a goal-check section below is
-   the implicit signal that everyone agreed. Example:
+   **Paragraph 1: lead with the goal and the purpose (uncontested case only).**
+   When all panelists agreed on a clear goal and a served or inferred purpose
+   (no goal-check or purpose-check section will be emitted), open with both in
+   plain human language — one or two sentences, no `Goal:` / `Purpose:` label,
+   no "all panelists agree" suffix. Say what the change does and the problem it
+   solves. The absence of a goal-check / purpose-check section below is the
+   implicit signal that everyone agreed. Example:
 
    ```md
    Stand up the @bank/evm package as the foundation for future send-saga work —
-   viem-backed primitives for the EVM transaction lifecycle.
+   viem-backed primitives for the EVM transaction lifecycle. Today each saga
+   re-implements nonce and receipt handling; this gives them one shared copy.
    ```
 
-   If the goal is contested (any case that would trigger a goal-check section
-   per the conditional rules above), **skip paragraph 1 entirely**. The reader's
-   signal that the goal is contested is the presence of the goal-check section
+   If the goal or the purpose is contested (any case that would trigger a
+   goal-check or purpose-check section per the conditional rules above), **skip
+   paragraph 1 entirely**. The reader's signal is the presence of that section
    further down; absence of a lead in Overview lines up with that.
 
    **Paragraph 2: factual scope.** Two to four sentences for a human who has not
@@ -344,24 +375,37 @@ When _not_ to use:
    `Approach: sound.` as a second sentence so the verdict stays visible without
    a separate section. When a `### Approach check` section will be emitted
    below, omit the inline `Approach:` line — the section carries the detail.
+   Do the same for proof: when no `### Proof check` section will be emitted,
+   append `Proof: <the evidence, in a few words>.` (for example
+   `Proof: new unit tests in receipts.test.ts; suite green in the worktree.` or
+   `Proof: not needed, docs only.`). When a `### Proof check` section will be
+   emitted, omit the inline line.
 
    Rubric:
    - **LOW** — docs / tests / formatting / non-load-bearing refactor. No
      multi-panelist findings. No HIGH/CRITICAL findings. All panelists agreed on
-     the goal. All panelists tagged `Approach (sound):`. No auth / payments /
-     migrations / cryptography touched.
+     the goal. All panelists tagged `Approach (sound):`. All panelists tagged
+     `Purpose (stated, served):` or `(inferred)`. All panelists tagged
+     `Proof (shown):` or `(not needed)`. No auth / payments / migrations /
+     cryptography touched.
    - **MEDIUM** — touches business logic or non-trivial code paths. Findings
      exist but are fixable. No CRITICAL findings. Goal was clear or only mildly
-     divergent across panelists. No verified `Approach (questionable):`.
+     divergent across panelists. No verified `Approach (questionable):`. A
+     verified `Purpose (unknown):` or `Proof (missing):` lands here at minimum.
    - **HIGH** — any of:
      - a verified HIGH finding raised by 2+ panelists;
      - a verified `Approach (questionable):` flag (the change is fixing the
        wrong layer — even a correct implementation is short-term relief at the
        cost of future bugs);
+     - a verified `Purpose (stated, not served):` flag (the diff does not do
+       what the description says, or does it at a cost the description hides);
+     - a verified `Proof (missing):` on a change that touches auth, session
+       handling, payments, schema migrations, crypto, or production infra;
      - the change touches auth, session handling, payments, schema migrations,
        crypto, or production infra;
      - panelists disagreed substantially on what the change does;
-     - the diff is unusually large (>500 lines) AND lacks a clear goal.
+     - the diff is unusually large (>500 lines) AND lacks a clear goal or a
+       stated purpose.
    - **CRITICAL** — any verified CRITICAL finding (a bug in the change that
      would break production on merge, or a known data-loss / security-bypass /
      credential-leak path introduced) escalates the whole change to this bucket
@@ -465,6 +509,75 @@ When _not_ to use:
    only then surface it. A wrong `Approach (questionable):` is worse than a
    missed one because it derails the entire review toward a phantom redesign.
 
+   ### Purpose check (only when purpose is missing, not served, or contested)
+
+   Each panelist outputs a `Purpose:` line after `Approach:`, tagged
+   `(stated, served)`, `(stated, not served)`, `(inferred)`, or `(unknown)`.
+   This block asks why the change should exist and whether the diff serves that
+   reason. Working code with no reason to exist is not a contribution.
+
+   Emit this section only when one of these holds:
+   - **A verified `Purpose (stated, not served):`.** Read the description and
+     the diff yourself. Confirm the gap the panelist names: the diff does not
+     solve the stated problem, solves a different one, or solves it at a cost
+     the description hides. Quote the claim and the location:
+
+     ```md
+     - not served (raised by: claude (claude-opus-4.7)): the body says "fix the
+       header overlap on mobile", but `web/src/layout/header.tsx:61` removes the
+       login button from the mobile breakpoint instead of moving it. The
+       overlap is gone because the button is gone.
+     ```
+
+     Promote this into `### must-fix` as a HIGH-severity entry at the named
+     `file:line`.
+
+   - **A verified `Purpose (unknown):` on a non-trivial change.** Read the
+     description yourself. If it states no problem and you cannot infer one
+     from the diff either, quote what the panelist said a reader would need.
+     Promote this into `### should-fix` as a MEDIUM-severity entry (see the
+     description-anchored shape under **Findings buckets**). If you can infer
+     the purpose with confidence, drop the flag and state the purpose in the
+     Overview lead instead; note under `### Disagreements` that the panelist
+     could not.
+
+   - **Panelists name different purposes.** Quote each verbatim. Either the
+     description is unclear or the change does more than one thing; the user
+     decides.
+
+   Otherwise — all served or inferred, with one shared reason — omit this
+   section. The Overview lead carries the purpose.
+
+   ### Proof check (only when proof is missing and verified)
+
+   Each panelist outputs a `Proof:` line after `Purpose:`, tagged `(shown)`,
+   `(missing)`, or `(not needed)`. This block asks what shows the change works.
+
+   Emit this section only when at least one panelist tagged `Proof (missing):`
+   on a change that alters behavior, and you verified it: open the diff, look
+   for tests that exercise the changed behavior, and read the description's
+   testing notes. A panelist in read-only mode can miss a testing note in the
+   PR body; a panelist in worktree mode can run a green suite that never touches
+   the changed lines. Your own read is the tiebreaker.
+
+   Quote the unproven behavior with its location:
+
+   ```md
+   - missing (raised by 2: codex (gpt-5.5), claude (claude-opus-4.7)): the retry
+     path in `packages/evm/src/broadcast.ts:140-172` is new behavior; no test
+     exercises it and the PR body has no testing section.
+   ```
+
+   Promote this into `### should-fix` as a MEDIUM-severity entry at the
+   `file:line` of the unproven behavior, or into `### must-fix` as HIGH when
+   that behavior is in auth, session handling, payments, schema migrations,
+   crypto, or production infra. The `Fix:` line names the test to write or the
+   evidence to add, not "add tests".
+
+   When every panelist tagged `(shown)` or `(not needed)`, or the `(missing)`
+   claims did not hold, omit this section. `Proof: <evidence>.` appears inline
+   at the end of `### Risk` instead.
+
    ### Findings buckets (must-fix / should-fix / polish)
 
    The three severity buckets ARE the findings list — there are no separate
@@ -528,7 +641,34 @@ When _not_ to use:
    ```
 
    Put the Approach entry at the top of `### must-fix` — if the approach is
-   wrong, the per-line findings below may not survive the rework.
+   wrong, the per-line findings below may not survive the rework. A promoted
+   `Purpose (stated, not served):` entry goes directly below it, at its
+   `file:line`, for the same reason.
+
+   **Per-finding shape (promoted `Purpose (unknown):`).** Lives under
+   `### should-fix` as a MEDIUM-severity entry. The location is the PR
+   description (or the commit message for non-PR targets), written as
+   `PR description` in place of `file:line`; downstream skills post it as a
+   top-level PR comment rather than an inline one:
+
+   ```md
+   - [MEDIUM] PR description — states no problem this change solves; the diff
+     rewrites `packages/evm/src/nonce.ts` and a reader cannot tell what was
+     wrong before. Fix: add one or two sentences on the problem and how a
+     reviewer can see it is fixed. Flagged by: codex (gpt-5.5)
+   ```
+
+   **Per-finding shape (promoted `Proof (missing):`).** Lives under
+   `### should-fix` (MEDIUM) or `### must-fix` (HIGH in sensitive areas), at
+   the `file:line` of the unproven behavior. The `Fix:` line names the specific
+   test or evidence:
+
+   ```md
+   - [MEDIUM] packages/evm/src/broadcast.ts:140-172 — the new retry path has no
+     test and the PR body has no testing note. Fix: add a test that fails the
+     first send with a retryable code and asserts one retry, then note the run
+     in the PR body. Flagged by 2: codex (gpt-5.5), claude (claude-opus-4.7)
+   ```
 
    **Order within a bucket.** Within a severity, items raised by more panelists
    go first (consensus first), then single-flag items. Within a tie, group by
