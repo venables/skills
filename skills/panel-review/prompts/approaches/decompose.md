@@ -19,6 +19,7 @@ already specify.
    request/response shapes — the bugs a file-by-file read structurally misses.
 
 This approach changes only _how thoroughly you look_. It does not change the
-output format, the severity rubric, or the `Goal:` / `Approach:` tags — emit
+output format, the severity rubric, or the `Goal:` / `Approach:` / `Purpose:` /
+`Proof:` tags — emit
 findings exactly as instructed above, one per real issue, each with a
 `file:line` and a `Fix:`.

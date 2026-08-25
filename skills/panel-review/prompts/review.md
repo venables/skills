@@ -15,11 +15,15 @@ Review the diff below and report your findings.
 - Performance regressions or obviously wrong algorithmic choices
 - Code quality issues that materially hurt maintainability (not style nits a
   linter would catch)
+- Names and types that lie: a name that promises one thing and holds another, a
+  type widened to make the compiler stop complaining, a comment that says "X but
+  actually Y". Names are contracts; a reader in six months trusts them.
 
 ## How to report
 
-Your output has four parts in this order: a **Model** line, a **Goal** line, an
-**Approach** line, and the **findings** list.
+Your output has six parts in this order: a **Model** line, a **Goal** line, an
+**Approach** line, a **Purpose** line, a **Proof** line, and the **findings**
+list.
 
 ### 0. Model (mandatory, single line, FIRST line of your output)
 
@@ -91,7 +95,58 @@ evidence is visible in the diff itself, in files you have actually read, or in
 grep results you have actually run. Do not assume caller behavior or downstream
 effects you have not checked.
 
-### 3. Findings
+### 3. Purpose (mandatory, one block, immediately after the Approach line)
+
+`Goal:` says what the change does. `Purpose:` says why it should exist: the
+problem it solves, or the value it adds. Working code with no reason to exist is
+not a contribution. Working code that solves the stated problem by breaking
+something the description does not mention is worse. Ask: what problem does this
+solve, who has that problem, and does the diff solve it without hidden cost?
+
+Use one of these exact prefixes:
+
+- `Purpose (stated, served):` — the description (PR body or commit messages)
+  names the problem, and the diff solves that problem. Repeat the problem in one
+  sentence.
+- `Purpose (stated, not served):` — the description names the problem, but the
+  diff does not solve it, solves a different one, or solves it at a cost the
+  description hides (removes a code path, disables a check, changes behavior for
+  other callers). Name the gap and the `file:line` where you see it. **This is a
+  high-signal finding.**
+- `Purpose (inferred):` — the description gives no reason, but the diff makes
+  the reason obvious (a null check where a crash was possible, a typo fix). State
+  the reason you infer.
+- `Purpose (unknown):` — the description gives no reason and you cannot infer
+  one. Say what a reader would need to know. **This is itself a finding:** a
+  reviewer cannot judge a change against a purpose nobody stated.
+
+Do not confuse "the code is correct" with "the change has a purpose". Judge
+purpose against the description and the diff, not against how clean the code is.
+
+### 4. Proof (mandatory, one block, immediately after the Purpose line)
+
+Code that has not been shown to work is not known to work. Ask: what evidence in
+this change shows that it does what it claims? Look for tests added or changed
+in the diff that exercise the new behavior, a testing note in the description
+that says what was run, and explicit handling of the edges (empty input, error
+paths, the worst case), not only the happy path.
+
+Use one of these exact prefixes:
+
+- `Proof (shown):` — name the evidence in one sentence: which test covers the
+  new behavior, or what the description says was run.
+- `Proof (missing):` — the change alters behavior and nothing in the diff or the
+  description shows it works. Name the unproven behavior and its `file:line`.
+  Note edge cases the change defines nothing for.
+- `Proof (not needed):` — the change carries no behavior to prove: docs,
+  comments, formatting, config with no runtime effect, or a pure rename the type
+  checker verifies.
+
+**Read-only mode calibration:** you cannot run the tests. Judge proof from what
+the diff and the description contain. Do not tag `Proof (missing):` because you
+could not run something; tag it because nothing shows the behavior works.
+
+### 5. Findings
 
 For every finding, use this exact shape so the panel coordinator can merge
 results:
@@ -132,15 +187,15 @@ Do not push items up the scale to make the finding feel weightier.
 
 If multiple findings share a file, list them as separate bullets.
 
-If you find nothing meaningful, still output the `Model:`, `Goal:`, and
-`Approach:` lines first, then on the next line output:
+If you find nothing meaningful, still output the `Model:`, `Goal:`,
+`Approach:`, `Purpose:`, and `Proof:` lines first, then on the next line output:
 
 ```text
 NO_FINDINGS — <one sentence on what you checked>
 ```
 
-i.e. the synthesizer always sees `Model:`, `Goal:`, and `Approach:` from every
-panelist, even when there are zero findings.
+i.e. the synthesizer always sees all five header lines from every panelist,
+even when there are zero findings.
 
 ## How to write
 
@@ -162,7 +217,8 @@ summary of them.
   initiation".
 
 Keep the fixed labels above exactly as specified (`Model:`, `Goal (clear):`,
-`Approach (sound):`, `[HIGH]`, `Fix:`) — the coordinator matches on them.
+`Approach (sound):`, `Purpose (stated, served):`, `Proof (shown):`, `[HIGH]`,
+`Fix:`) — the coordinator matches on them.
 
 ## Hard constraints
 
@@ -174,11 +230,13 @@ Keep the fixed labels above exactly as specified (`Model:`, `Goal (clear):`,
 - Output goes to stdout only — do not write your findings to a file.
 - Do not paraphrase the diff back at the reader. The `Goal:` line is one or two
   sentences of intent, not a diff summary.
-- Do not write any preamble, summary, or sign-off beyond the `Model:` line, the
-  `Goal:` line, the `Approach:` line, and the bulleted findings (or
+- Do not write any preamble, summary, or sign-off beyond the `Model:`, `Goal:`,
+  `Approach:`, `Purpose:`, and `Proof:` lines and the bulleted findings (or
   `NO_FINDINGS`).
-- Skip style nits a formatter or linter would catch. Skip "consider adding a
-  test" unless a real bug is hiding behind missing coverage.
+- Skip style nits a formatter or linter would catch. Do not emit per-line
+  "consider adding a test" findings; missing evidence is reported once, in the
+  `Proof:` line. A finding is still correct when a real bug hides behind the
+  missing coverage.
 - Do not invent code or file contents. If a finding depends on caller behavior
   or downstream effects you have not actually checked, either drop it or mark it
   speculative.
