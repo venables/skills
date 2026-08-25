@@ -1,0 +1,31 @@
+name: Lint skills
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-skills-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate against the Agent Skills spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install the reference validator
+        run: pip install skills-ref==0.1.1
+
+      - name: Validate every skill
+        run: ./scripts/lint-skills.sh
