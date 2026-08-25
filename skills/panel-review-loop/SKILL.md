@@ -74,8 +74,9 @@ Before the first review, write down — one or two sentences, in your TodoWrite 
 notes — what the task was meant to achieve. This anchor matters because the two judgment
 calls later in the loop both lean on it: deciding whether a finding is in-scope vs.
 out-of-scope, and reporting at the end where the implementation drifted from intent.
-`panel-review` does its own Goal check and Approach check, which you'll cross-reference
-against this anchor.
+`panel-review` does its own Goal, Approach, Purpose, and Proof checks, which you'll
+cross-reference against this anchor. Write down the purpose too — the problem the task
+solves — so a `Purpose (unknown)` flag from the panel has something to compare against.
 
 If the task isn't actually done yet, finish it first — the loop reviews real work, not a
 stub. Usually the work already exists in this session; just capture the goal and proceed.
@@ -86,8 +87,8 @@ Invoke the `panel-review` skill and follow its steps end to end — it runs
 `panel-review.sh` and streams the panelists' progress for you. Don't reimplement
 its fan-out or drive that script yourself with ad-hoc orchestration in place of the skill;
 you want its polling, per-panelist streaming, and synthesized output: the Risk rating,
-Goal check, Approach check, Consensus / Unique findings, Disagreements, and Action list.
-Those are the inputs to your judgment step.
+Goal check, Approach check, Purpose check, Proof check, Consensus / Unique findings,
+Disagreements, and Action list. Those are the inputs to your judgment step.
 
 - Let `panel-review` pick the target the way it normally does in round 1 (auto-detect, or
   the target the user named), and note which target it used. One wrinkle drives the rest:
@@ -115,9 +116,12 @@ Lean on the signal `panel-review` already computed rather than re-deriving sever
 scratch:
 
 - **Fix by default:** any CRITICAL finding; consensus findings raised by 2+ panelists
-  (HIGH or MEDIUM); a substantiated `Approach (questionable)` flag. A wrong-layer fix is
+  (HIGH or MEDIUM); a substantiated `Approach (questionable)` flag; a verified
+  `Purpose (stated, not served)` flag; a verified `Proof (missing)` flag (write the test
+  the panel named, and confirm it fails without your change). A wrong-layer fix is
   usually worth more than any line-level finding — if the approach is off, the smaller
-  findings may not survive the rework anyway.
+  findings may not survive the rework anyway. A `Purpose (unknown)` flag means the
+  description is the fix: state the problem in the PR body or commit message.
 - **Judgment zone — verify, then decide:** single-panelist HIGHs and non-consensus MEDIUM
   findings. Open the code, confirm the issue is real, and fix it if it's a genuine,
   in-scope improvement that doesn't balloon the change. Forego it if it's speculative,

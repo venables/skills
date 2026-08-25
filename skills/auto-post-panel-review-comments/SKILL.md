@@ -105,7 +105,11 @@ per "Routing" below (usually Linear or dropped), never guess a location.
 Apply this to every finding, in order. No prompts.
 
 1. **Drop pure noise.** A finding with no concrete file:line _and_ no
-   actionable substance is dropped (counted in the report).
+   actionable substance is dropped (counted in the report). Exception: a
+   `panel-review` finding located at `PR description` (a promoted
+   `Purpose (unknown)` flag) is actionable and in-scope; it has no line to
+   anchor to, so post it directly as a top-level PR comment (same body
+   shape as the top-level fallback, with `**Location:** PR description`).
 2. **Route uncertain / out-of-scope findings to Linear** (see "Routing").
    A finding is uncertain when you cannot confidently confirm it's real
    from the diff (speculative, needs investigation, depends on unverified
@@ -146,7 +150,8 @@ Surface which override you applied in the report.
 - **PR** — confident, in-scope, has a concrete file:line (a fix is
   optional). Posted inline (suggestion or prose if a fix exists, finding
   body alone otherwise), with the top-level fallback when GitHub rejects
-  the inline. This is where _most_ findings should land.
+  the inline. This is where _most_ findings should land. A finding located
+  at `PR description` skips the inline attempt and posts top-level.
 - **Linear** — uncertain/needs-exploration findings, and real-but-out-of-
   PR-scope findings, plus anything an override sends there. Only when
   Linear is reachable from this session (see below).

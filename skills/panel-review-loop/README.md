@@ -40,7 +40,7 @@ The agent anchors the goal, runs `panel-review`, decides per finding whether it'
 ## What it does
 
 - **Anchors the goal** up front so it can judge in-scope vs. out-of-scope findings and report deviations honestly.
-- **Invokes `panel-review`** each round (standard mode by default) and consumes its synthesized output — Risk, Goal check, Approach check, Consensus / Unique findings, Disagreements, Action list.
+- **Invokes `panel-review`** each round (standard mode by default) and consumes its synthesized output — Risk, Goal / Approach / Purpose / Proof checks, Consensus / Unique findings, Disagreements, Action list.
 - **Judges every finding** FIX or FOREGO, leaning on the panel's own severity and consensus signal: fixes any CRITICAL and consensus (2+ panelist) HIGH/MEDIUM findings by default, verifies the judgment-zone ones (single-panelist HIGHs, non-consensus MEDIUMs) against the code, and forgoes out-of-scope, speculative, or LOW-severity ones — recording a reason for each it skips.
 - **Batches fixes per round** (one review per round, not one per fix) to keep the loop affordable, then re-reviews the updated local state.
 - **Reports once at the end**: fixed items, items left alone with reasons, deviations from the goal surfaced for your call, and any notes (unresolved disagreements, non-convergence).
