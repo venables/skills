@@ -5,18 +5,17 @@ description: >
   request using your own judgment: fix what's valid and relevant, defer
   worthwhile-but-out-of-scope work to a Linear ticket, and reply to
   every comment — with the fix, the ticket link, or an honest rationale
-  for not fixing — then resolve the threads you've handled. Use this
-  skill whenever the user says things like "check all the comments on
-  the PR and fix the ones you think are valid", "handle the review
-  comments", "address the PR feedback", "work through the comments and
-  reply to each", "go deal with the reviewers", or any phrasing that
-  means "act on what reviewers already said and leave each thread with
-  an answer". Auto-detects the target PR from the current branch when
-  the user doesn't name one. Different from `panel-review` (which
-  *generates* findings) and `post-panel-review-comments` (which *posts*
-  new findings): this skill *consumes* comments that already exist on
-  the PR. Do NOT use to generate a review or to post findings produced
-  elsewhere.
+  for not fixing — then resolve the threads you've handled. Use whenever
+  the user says things like "check all the comments on the PR and fix the
+  ones you think are valid", "handle the review comments", "address the PR
+  feedback", "work through the comments and reply to each", "go deal with
+  the reviewers", or any phrasing meaning "act on what reviewers already
+  said and leave each thread with an answer". Auto-detects the target PR
+  from the current branch when the user doesn't name one. Different from
+  `panel-review` (which *generates* findings) and
+  `post-panel-review-comments` (which *posts* new findings): this skill
+  *consumes* comments already on the PR. Do NOT use to generate a review
+  or to post findings produced elsewhere.
 ---
 
 # pr-comment-handler

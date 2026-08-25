@@ -1,30 +1,22 @@
 ---
 name: auto-review
 description: >
-  One-shot "review, post, and maybe approve" pipeline for a PR. Runs the
-  `panel-review` skill (called as-is, kept separate), then runs the
-  `auto-post-panel-review-comments` flow to post the legitimate findings
-  straight to the PR, then — only when the PR comes back clean enough
-  (at least 75% of the panel returned and the findings are LOW/polish
-  only, no must-fix or should-fix, approach sound) — approves the PR via
-  `approve-pr` with a short LGTM-style body. The approval step only runs
-  when the invocation actually asks for it — "auto-review this PR", "auto
-  review", "auto panel review", "auto panel-review", "auto-panel-review",
-  "review it and approve if it's clean", "review, comment, and stamp it if
-  clean". Any invocation prefixing "auto" onto a review request means this
-  skill and means the full review→post→approve pipeline, even when it also
-  says "panel" — prefer this skill over `panel-review` whenever "auto"
-  appears. A post-only request ("review and post the comments",
-  "panel-review then auto-post") runs the review + post and **skips
-  approval**; when intent is ambiguous it defaults to post-only without
-  asking. (Posting
-  findings you already have in hand, with no review to run, is
-  `auto-post-panel-review-comments`, not this skill.) Honors the auto-post routing overrides (e.g. "send LOW/polish
-  to Linear"). Do NOT use when the user only wants the review
+  One-shot "review, post, and maybe approve" pipeline for a PR. Runs
+  `panel-review`, then `auto-post-panel-review-comments` to post the
+  legitimate findings to the PR, then — only when the PR comes back clean
+  enough (at least 75% of the panel returned, findings LOW/polish only, no
+  must-fix or should-fix, approach sound) — approves via `approve-pr`. Use
+  for "auto-review this PR", "auto review", "auto panel review",
+  "auto-panel-review", "review it and approve if it's clean". Any review
+  request prefixed with "auto" means this skill and the full
+  review→post→approve pipeline, even when it also says "panel" — prefer it
+  over `panel-review` whenever "auto" appears. A post-only request ("review
+  and post the comments") skips approval; ambiguous intent defaults to
+  post-only. Do NOT use when the user only wants the review
   (`panel-review`), only wants to post findings already in hand
-  (`auto-post-panel-review-comments` / `post-panel-review-comments`), wants
-  to iterate fix-and-rereview to convergence (`panel-review-loop`), or just
-  wants to approve (`approve-pr`).
+  (`auto-post-panel-review-comments`), wants fix-and-rereview to
+  convergence (`panel-review-loop`), or just wants to approve
+  (`approve-pr`).
 ---
 
 # auto-review

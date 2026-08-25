@@ -1,23 +1,21 @@
 ---
 name: auto-post-panel-review-comments
 description: >
-  Zero-touch sibling of `post-panel-review-comments`: take a list of
-  code-review findings (typically from a prior `panel-review`) and post
-  the legitimate ones straight to the PR as standalone inline comments —
-  no select-list, no per-finding prompts. Each clean finding becomes an
-  inline comment (a mergeable ` ```suggestion ` block when the fix is a
-  drop-in, prose otherwise); anything an automated reviewer already
-  raised is +1'd instead of duplicated; uncertain or out-of-PR-scope
-  findings are routed to Linear (when reachable) instead of the PR. Use
-  when the user wants the findings posted automatically — phrasings like
-  "auto-post these", "just post the legitimate findings", "post them all
-  to the PR, no triage", "auto mode", "fire these onto the PR without
-  asking", "post the panel review comments automatically". Honors
-  explicit routing overrides like "post the LOW/polish ones to Linear".
-  Do NOT use when the user wants to *pick* which findings go where (that
-  is the interactive `post-panel-review-comments`), to *generate* the
-  findings (run `panel-review` first), or to act on comments already on
-  the PR (that is `pr-comment-handler`).
+  Take a list of code-review findings (typically from a prior
+  `panel-review`) and post the legitimate ones straight to the PR as
+  standalone inline comments — no select-list, no per-finding prompts.
+  Each clean finding becomes an inline comment (a mergeable
+  ` ```suggestion ` block when the fix is a drop-in, prose otherwise);
+  anything an automated reviewer already raised is +1'd instead of
+  duplicated; uncertain or out-of-PR-scope findings go to Linear (when
+  reachable) instead. Use when the user wants the findings posted
+  automatically — "auto-post these", "just post the legitimate findings",
+  "post them all to the PR, no triage", "auto mode", "post the panel
+  review comments automatically". Honors routing overrides like "post the
+  LOW/polish ones to Linear". Do NOT use when the user wants to *pick*
+  which findings go where (the interactive `post-panel-review-comments`),
+  to *generate* the findings (run `panel-review` first), or to act on
+  comments already on the PR (`pr-comment-handler`).
 ---
 
 # auto-post-panel-review-comments

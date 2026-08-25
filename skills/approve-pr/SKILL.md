@@ -6,14 +6,12 @@ description: >
   comments have been handled. Use whenever the user says things like
   "approve the PR", "approve this", "approve PR 27", "LGTM it", "ship
   it", "stamp it", "give it a thumbs up", or "approve with <message>".
-  When the user gives no message, approve with a short, fun body — an
-  LGTM or a single silly emoji (cowboy, ship-it, rocket, etc.) as the
-  only text. When the user supplies a message, use it verbatim as the
-  approval body. Auto-detects the target PR from the current branch when
-  the user does not name one. After approving, if Slack MCP is available,
-  finds the review-request message for this PR in the #dev channel, adds
-  a ✅ reaction to it, and removes the user's own 👀 reaction if present.
-  Do NOT use to *request changes* or leave a
+  With no message given, approve with a short, fun body — an LGTM or a
+  single silly emoji as the only text; with a message supplied, use it
+  verbatim. Auto-detects the target PR from the current branch when the
+  user does not name one. After approving, if Slack MCP is available,
+  reacts ✅ to this PR's review-request message in #dev and removes the
+  user's own 👀 reaction. Do NOT use to *request changes* or leave a
   non-approving review (use a plain `gh pr review` / the PR comment
   skills), to *generate* a review (`panel-review`), or to act on existing
   review comments (`pr-comment-handler`).

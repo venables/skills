@@ -5,22 +5,17 @@ description: >
   review, decide whether it was actually remediated (read the new code —
   don't trust "fixed in abc123") or adequately explained, reply to and
   resolve the threads you're satisfied with, run a fresh `panel-review`
-  over the new commits when the delta is significant enough that nobody
-  has reviewed it, and approve via `approve-pr` when you're satisfied.
-  Use whenever the user says things like "double check this PR", "re-check
-  this PR", "recheck PR 27", "did they fix the issues?", "check if the
-  findings were remediated or explained and approve if you're satisfied",
-  "look at it again and stamp it if it's good", "verify they addressed the
-  review comments", or "another look now that they've pushed". Also use it
-  proactively after a `panel-review` / `auto-review` when the author pushes
-  fixes and asks for another look. Requires the prior review to be in this
-  session's context (a `panel-review` synthesis, an `auto-review` run, or a
-  findings list the user pasted) — without it, stop and say so rather than
-  guessing what was supposed to be fixed. Do NOT use to *generate* a first
-  review (`panel-review`), to post findings (`auto-post-panel-review-comments`),
-  to act on comments as the PR *author* (`pr-comment-handler`), to iterate
-  fix-and-rereview to convergence (`panel-review-loop`), or to approve
-  without re-checking anything (`approve-pr`).
+  over the new commits when the delta warrants it, and approve via
+  `approve-pr` when satisfied. Use for "double check this PR", "recheck PR
+  27", "did they fix the issues?", "look at it again and stamp it if it's
+  good", "verify they addressed the review comments". Also use
+  proactively after a `panel-review` /
+  `auto-review` when the author pushes fixes. Requires the prior review in
+  this session's context — without it, stop and say so rather than
+  guessing. Do NOT use to *generate* a first review (`panel-review`), to
+  post findings (`auto-post-panel-review-comments`), to act on comments as
+  the PR *author* (`pr-comment-handler`), to iterate to convergence
+  (`panel-review-loop`), or to approve without re-checking (`approve-pr`).
 ---
 
 # recheck-pr
