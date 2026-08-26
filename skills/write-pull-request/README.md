@@ -1,11 +1,11 @@
-# create-pull-request
+# write-pull-request
 
 Open a GitHub pull request that a human can actually skim: a plain-language title, and a body that leads with a short Changes list before the reasoning (Problem/Solution, or a Goal for net-new features) and Testing. The reusable PR-opening procedure the `ship` playbook delegates to, usable on its own when you just want a PR opened.
 
 ## Install
 
 ```
-npx skills add venables/skills --skill create-pull-request
+npx skills add venables/skills --skill write-pull-request
 ```
 
 Requires the `gh` CLI, authenticated against the repo.

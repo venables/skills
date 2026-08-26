@@ -1,9 +1,9 @@
 ---
-name: create-pull-request
+name: write-pull-request
 description: Open a GitHub pull request for the current work, with a plain-language title and a body a human can skim (a Changes list, then Problem/Solution or a Goal for net-new features, then Testing). Use whenever the user says "open a PR", "PR this", "raise a pull request", "put up a PR for this", "ship this as a PR", or the work is committed and it is time to open one. Auto-detects the base branch and derives the title and body from the actual diff and commits, not from memory of the conversation. Honors a repo's `.github/pull_request_template.md` when present. This is the reusable PR-opening procedure the `ship` playbook delegates to; use it directly when you just want a PR opened without running the whole build-and-ship loop. Do NOT use to update review comments on an existing PR (`pr-comment-handler`), to get a PR mergeable (`babysit-pr`), or to review a diff (`panel-review`).
 ---
 
-# create-pull-request
+# write-pull-request
 
 Open one pull request that a human can read. The title says what changed, and the body leads with a scannable list, so a reviewer knows what they are looking at before they open the diff. The steps below cover the mechanics: branch, push, write the title and body, `gh pr create`.
 
