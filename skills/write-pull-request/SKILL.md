@@ -1,6 +1,6 @@
 ---
 name: write-pull-request
-description: Write and open a GitHub pull request for the current work. The title is one plain-language imperative line; the body is one a reviewer can scan (a one-line overview, a short Changes list, then Why, Decisions, How to verify, and Risk), derived from the real diff and commits, not from memory of the conversation. Use whenever the user says "open a PR", "PR this", "write the PR", "raise a pull request", "ship this as a PR", "rewrite this PR description", or the work is committed and it is time to open one. Auto-detects the base branch, honors a repo's `.github/pull_request_template.md`, gates the title and body through `scripts/pr-lint.sh` before `gh pr create`, and updates the existing PR with `gh pr edit` when the branch already has one. The procedure the `ship` playbook delegates to; use it directly for a PR without the whole build-and-ship loop. Do NOT use to answer review comments on an existing PR (`pr-comment-handler`), to get a PR mergeable (`babysit-pr`), or to review a diff (`panel-review`).
+description: Write and open a GitHub pull request for the current work. The title is one plain-language imperative line; the body is one a reviewer can scan (a one-line overview, Why, a short Changes list, Decisions, How to verify, and Risk), derived from the real diff and commits, not from memory of the conversation. Use whenever the user says "open a PR", "PR this", "write the PR", "raise a pull request", "ship this as a PR", "rewrite this PR description", or the work is committed and it is time to open one. Auto-detects the base branch, honors a repo's `.github/pull_request_template.md`, gates the title and body through `scripts/pr-lint.sh` before `gh pr create`, and updates the existing PR with `gh pr edit` when the branch already has one. The procedure the `ship` playbook delegates to; use it directly for a PR without the whole build-and-ship loop. Do NOT use to answer review comments on an existing PR (`pr-comment-handler`), to get a PR mergeable (`babysit-pr`), or to review a diff (`panel-review`).
 ---
 
 # write-pull-request
@@ -76,13 +76,13 @@ One overview line, then the sections. The whole body fits on one screen: a revie
 ```markdown
 Changes <X> so that <Y>.
 
-## Changes
-
-- <One short line per change, under ten words>
-
 ## Why
 
 <Two or three short sentences. **Bold the key phrase** in each.>
+
+## Changes
+
+- <One short line per change, under ten words>
 
 ## Decisions
 
@@ -101,8 +101,8 @@ Closes ABC-123
 ```
 
 - **The overview line.** The first line of the body, above every heading. `Changes X so that Y` (`Adds X so that Y` for a net-new feature): the change and the payoff, nothing else. A stacked PR also names its base branch here.
-- **Changes.** Three to seven lines, top-level changes only. Under ten words each; lead with the thing that changed, not "Added" or "Updated". Roll small related edits into one line; the diff already holds the file list. No paragraphs, no nested bullets.
 - **Why.** The problem or the goal, the reason for this solution, the cost. Two or three short sentences with the **key phrase in bold**. Never a file list, a restatement of the diff, or a log of your working session.
+- **Changes.** Three to seven lines, top-level changes only. Under ten words each; lead with the thing that changed, not "Added" or "Updated". Roll small related edits into one line; the diff already holds the file list. No paragraphs, no nested bullets.
 - **Decisions.** Only when the work forced a real call: a tradeoff, a rejected alternative, a judgment a reviewer might question. One bullet per decision, the choice in bold, the reason after the colon. No decisions, no section.
 - **How to verify.** Numbered steps, one action each, with the concrete expected result. Name what you actually ran. Screenshots for UI states, with alt text, using the repo's screenshot convention when one exists.
 - **Risk.** The failure mode if this is wrong and the rollback, in one or two sentences. When there is none, say so: `Risk: none, docs only.`

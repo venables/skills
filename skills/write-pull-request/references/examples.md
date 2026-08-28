@@ -47,17 +47,17 @@ Failures: no overview line, pre-announcing, `we`, "some" and "a couple", two unr
 Changes the settings page to read feature flags from the shared `flags`
 context so that opening it fires one request instead of seven.
 
-## Changes
-
-- Settings page reads feature flags from the `flags` context
-- One `/api/flags` request on mount instead of seven
-- Sections render in a stable order
-
 ## Why
 
 Each section fetched its own flag: **seven identical requests** and a
 **random render order**. The dashboard's `flags` context already exists,
 so this change **reuses it**.
+
+## Changes
+
+- Settings page reads feature flags from the `flags` context
+- One `/api/flags` request on mount instead of seven
+- Sections render in a stable order
 
 ## Decisions
 
@@ -88,17 +88,17 @@ Nothing was broken, so the overview and `Why` state the goal, not a manufactured
 Adds a CSV export of a team's invoices so that admins stop copying them
 out of the UI by hand.
 
-## Changes
-
-- Admins can export a team's invoices as CSV
-- New `GET /teams/:id/invoices.csv` route
-- Export button on the team billing page
-
 ## Why
 
 Finance asks admins for invoice history **every quarter**. This change
 gives them **one download**. Cost: the route holds a database cursor
 open for the length of the download.
+
+## Changes
+
+- Admins can export a team's invoices as CSV
+- New `GET /teams/:id/invoices.csv` route
+- Export button on the team billing page
 
 ## Decisions
 
