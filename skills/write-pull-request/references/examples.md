@@ -16,7 +16,17 @@ Every "before" is a real shape you will produce if you skip the skill.
 
 Test each one: "If applied, this PR will **stop double-charging cards on retried checkouts**." The sentence holds.
 
-## 2. Body
+## 2. Overview line
+
+The first line of the body, above every heading. The change and the payoff, nothing else.
+
+| Before                                                       | After                                                                         |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `## Description` (body opens with a heading)                 | `Changes the flag fetch to one shared context so that /settings loads once.` |
+| `This PR refactors how the settings page loads its flags...` | `Changes the flag fetch to one shared context so that /settings loads once.` |
+| A three-sentence opening paragraph                           | One sentence; the detail lives in `Why`                                       |
+
+## 3. Body
 
 ### Before
 
@@ -29,11 +39,14 @@ bugs we found. Should be pretty straightforward to review!
 Tested locally, works fine.
 ```
 
-Failures: pre-announcing, `we`, "some" and "a couple", two unrelated changes, no why, no risk, an unverifiable testing claim, no ticket.
+Failures: no overview line, pre-announcing, `we`, "some" and "a couple", two unrelated changes, no why, no risk, an unverifiable testing claim, no ticket.
 
 ### After
 
 ```markdown
+Changes the settings page to read feature flags from the shared `flags`
+context so that opening it fires one request instead of seven.
+
 ## Changes
 
 - Settings page reads feature flags from the `flags` context
@@ -42,16 +55,14 @@ Failures: pre-announcing, `we`, "some" and "a couple", two unrelated changes, no
 
 ## Why
 
-Each settings section fetched its own flag, so opening the page fired
-seven identical requests and the sections rendered in a random order.
+Each section fetched its own flag: **seven identical requests** and a
+**random render order**. The dashboard's `flags` context already exists,
+so this change **reuses it**.
 
-The `flags` context already existed for the dashboard, so this change
-reuses it instead of adding a settings-specific cache. A per-page cache
-was the alternative; it would be a second source of truth for the same
-flags.
+## Decisions
 
-Cost: a stale context leaves the whole page on old flags rather than one
-section.
+- **Shared context over a per-page cache**: a cache would be a second
+  source of truth for the same flags.
 
 ## How to verify
 
@@ -61,20 +72,22 @@ section.
 
 ## Risk
 
-A stale context leaves the whole page on old flags. The context refetches
-on focus, so the window is one tab-switch wide. Roll back by reverting
-this PR; no migration is involved.
+A stale context leaves the **whole page** on old flags, not one section;
+the context refetches on focus. Roll back by reverting this PR.
 
 Closes ABC-472
 ```
 
 The unrelated bug fixes became their own PR.
 
-## 3. A net-new feature
+## 4. A net-new feature
 
-Nothing was broken, so `Why` states the goal, not a manufactured problem.
+Nothing was broken, so the overview and `Why` state the goal, not a manufactured problem.
 
 ```markdown
+Adds a CSV export of a team's invoices so that admins stop copying them
+out of the UI by hand.
+
 ## Changes
 
 - Admins can export a team's invoices as CSV
@@ -83,16 +96,15 @@ Nothing was broken, so `Why` states the goal, not a manufactured problem.
 
 ## Why
 
-Finance asks admins for invoice history every quarter, and today an admin
-copies it out of the UI by hand. This change gives them one download.
+Finance asks admins for invoice history **every quarter**. This change
+gives them **one download**. Cost: the route holds a database cursor
+open for the length of the download.
 
-The route streams rows instead of building the file in memory, because
-the largest team has 40k invoices. A background job with an emailed link
-was the alternative; it is the right shape past a few hundred thousand
-rows, and no team is near that.
+## Decisions
 
-Cost: the route holds a database cursor open for the length of the
-download.
+- **Stream rows over a background job**: the largest team has 40k
+  invoices, which streams fine; an emailed link is the right shape past
+  a few hundred thousand rows.
 
 ## How to verify
 
@@ -102,16 +114,19 @@ download.
 
 ## Risk
 
-A non-admin who guesses the URL gets a 403; the route reuses the billing
-page's guard. Roll back by reverting this PR.
+A non-admin who guesses the URL gets a **403**; the route reuses the
+billing page's guard. Roll back by reverting this PR.
 
 Closes BIL-88
 ```
 
-## 4. Changes list
+## 5. Changes list
+
+Three to seven top-level lines. Roll small related edits into one line; the diff already holds the file list.
 
 | Before                                                                                                 | After                                            |
 | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | `- Added a new deduplication step inside charge() that checks the idempotency key before calling out` | `- charge() deduplicates on the idempotency key` |
 | `- Updated tests`                                                                                      | `- Regression test for the retry path`           |
 | `- src/checkout/charge.ts, src/checkout/retry.ts`                                                      | `- Retried checkouts no longer double-charge`    |
+| Twenty lines, one per file touched                                                                     | Five lines, one per change a reader cares about  |

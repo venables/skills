@@ -124,6 +124,20 @@ printf '%s\n' "$prose" | grep -qiw 'we' \
 printf '%s\n' "$prose" | grep -Eq '^(This|The) PR ' \
   && err "do not pre-announce with 'This PR ...'; say what changed"
 
+# Paragraphs: three sentences max unless the key phrases are bold.
+printf '%s\n' "$prose" | awk '
+  function flush() {
+    if (sent > 3 && !bold) printf "  ! paragraph has %d sentences and no bold; shorten it or bold the key phrases\n", sent
+    sent = 0; bold = 0
+  }
+  /^#/ || /^[ \t]*[-*] / || /^[ \t]*[0-9]+\. / || /^[ \t]*$/ { flush(); next }
+  {
+    if (index($0, "**")) bold = 1
+    sent += gsub(/[.!?] /, "&")
+    if ($0 ~ /[.!?][ \t]*$/) sent++
+  }
+  END { flush() }'
+
 # Sentence length: 25 words max. Skip headings, lists, and lines with URLs.
 printf '%s\n' "$prose" | awk '
   /^#/ || /^[ \t]*[-*] / || /^[ \t]*[0-9]+\. / || /https?:\/\// { next }
@@ -140,16 +154,24 @@ if [ "$repo_template" -eq 0 ]; then
     printf '%s\n' "$body" | grep -q "^$h\$" || err "missing section: $h"
   done
 
-  # Changes: one short line per change, no nesting, no prose.
+  # The overview line: one sentence above every heading.
+  first_line=$(printf '%s\n' "$body" | sed -n '/[^[:space:]]/{p;q;}')
+  case $first_line in
+    "#"*) err "body must open with a one-line overview above the headings: 'Changes X so that Y'" ;;
+  esac
+
+  # Changes: three to seven short lines, no nesting, no prose.
   printf '%s\n' "$body" | awk '
     /^## / { in_changes = ($0 == "## Changes"); next }
     in_changes && /^[ \t]+[-*] / { printf "  ! nested bullet in Changes: %s\n", $0; next }
     in_changes && /^[-*] / {
+      count++
       n = NF - 1
       if (n > 12) printf "  ! Changes line is %d words (keep it under ten): %s\n", n, $0
       next
     }
-    in_changes && /^[^ \t#-]/ { printf "  ! prose in Changes; move it to Why: %s\n", substr($0, 1, 60) }'
+    in_changes && /^[^ \t#-]/ { printf "  ! prose in Changes; move it to Why: %s\n", substr($0, 1, 60) }
+    END { if (count > 7) printf "  ! Changes has %d lines (keep it to three to seven, top-level only)\n", count }'
 
   # How to verify: numbered steps.
   printf '%s\n' "$body" | awk '
