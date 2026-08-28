@@ -117,11 +117,25 @@ scratch:
 
 - **Fix by default:** any CRITICAL finding; consensus findings raised by 2+ panelists
   (HIGH or MEDIUM); a substantiated `Approach (questionable)` flag; a verified
-  `Purpose (stated, not served)` flag; a verified `Proof (missing)` flag (write the test
-  the panel named, and confirm it fails without your change). A wrong-layer fix is
-  usually worth more than any line-level finding — if the approach is off, the smaller
-  findings may not survive the rework anyway. A `Purpose (unknown)` flag means the
-  description is the fix: state the problem in the PR body or commit message.
+  `Proof (missing)` flag (write the test the panel named, and confirm it fails without
+  your change). A wrong-layer fix is usually worth more than any line-level finding — if
+  the approach is off, the smaller findings may not survive the rework anyway.
+- **Purpose flags — the anchor decides, not the panel.** In a loop the user already
+  told you why the change exists; that is your anchor from step 0. The panel only sees
+  the diff and the description, so its `Purpose:` verdict is a check on the
+  description, never a veto on the task.
+  - `Purpose (unknown)`: fix once, by writing the anchor into the PR body or commit
+    message. Then treat it as done. If a later round raises it again, FOREGO it and
+    note it in the report; do not keep rewording the description.
+  - `Purpose (stated, not served)`: compare the named gap against the anchor. If the
+    change serves the anchor and the panel disagrees with the anchor itself, FOREGO it
+    and surface it under deviations in the report for the user's call. Fix it only when
+    the gap is real against the anchor (the diff really does not do what the user asked,
+    or does it at a hidden cost the user did not accept).
+  - Never stop the loop or refuse to continue because the panel thinks the whole change
+    is pointless. Whether the change should exist is the user's decision; your job in
+    the loop is to make the change the user asked for correct and proven. Report the
+    verdict at the end, then move on.
 - **Judgment zone — verify, then decide:** single-panelist HIGHs and non-consensus MEDIUM
   findings. Open the code, confirm the issue is real, and fix it if it's a genuine,
   in-scope improvement that doesn't balloon the change. Forego it if it's speculative,
@@ -162,7 +176,9 @@ Then go back to step 1.
 
 Stop when nothing left is worth fixing — every remaining finding lands in FOREGO. That's
 the normal exit: a round that surfaces only low-value or out-of-scope items you've
-already reasoned through, with no CRITICAL / HIGH and no substantiated approach flag.
+already reasoned through, with no CRITICAL / HIGH and no substantiated approach flag. A
+`Purpose` or `Proof` flag you have already handled once (see the judgment rules above)
+does not block this exit; it goes in the report, not into another round.
 
 There's no hard round cap (you're trusted to judge), but watch for two non-convergence
 signals and stop + report honestly if you hit them instead of looping indefinitely:
@@ -191,6 +207,8 @@ Left alone (<count>):
 
 Deviations from the goal (<count or "none">):
   - what drifted, or what a finding implies about the goal, surfaced for your call
+  - any panel verdict on whether the change should exist (`Purpose`), stated once,
+    with your read against the anchor — the user decides, the loop did not
   ...
 
 Notes:
