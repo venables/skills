@@ -448,6 +448,15 @@ else
   mkdir -p "$OUT_DIR"
 fi
 
+# Machine-readable panel composition, written one row per panelist as each
+# finishes. This is the integration surface for anything that measures the
+# panel (which models ran, which contributed, how long they took) — a consumer
+# should read this, never scrape a model's name out of its prose.
+PANELIST_MANIFEST="$OUT_DIR/panelists.tsv"
+printf '%s\n' \
+  $'reviewer_id\tbackend\tmodel\tmodel_source\treported_model\tapproach\tstatus\texit_code\tstarted_at\tcompleted_at\tduration_ms' \
+  > "$PANELIST_MANIFEST"
+
 # ----- Build the diff (or, for PR targets, just the metadata) -----
 DIFF_FILE="$OUT_DIR/diff.patch"
 TARGET_LABEL=""
@@ -923,7 +932,12 @@ build_argv() {
   # first line is the mandated `Model:` line the synthesizer reads). dash-p owns
   # the per-panelist timeout and exits 20 on expiry, matching the rc handling in
   # print_section / panelist_error_reason.
-  argv=("$DASHP_BIN" -H "$backend" --output-format text --timeout "$TIMEOUT_SECS")
+  # --meta-file makes dash-p write its authoritative run-metadata envelope for
+  # this panelist: the model that actually ran, the permission and network
+  # tiers, the harness version, and the exit status. It is the model-attribution
+  # source (see resolve_model) and it is written even when the run fails.
+  argv=("$DASHP_BIN" -H "$backend" --output-format text --timeout "$TIMEOUT_SECS"
+        --meta-file "$OUT_DIR/$id.meta.json")
   [[ -n "$model" ]] && argv+=(--model "$model")
 
   if (( CHECKOUT_MODE )); then
@@ -992,9 +1006,11 @@ for p in "${PANEL_IDS[@]}"; do
   # subshell would orphan a wedged dash-p + backend. The rc is written
   # atomically (tmp + mv) so the poll loop can never read or clobber a
   # half-written rc.
-  ( "${argv[@]}" <"$OUT_DIR/$p.prompt" >"$out" 2>"$err" & apid=$!
+  ( date +%s >"$OUT_DIR/$p.started-at"
+    "${argv[@]}" <"$OUT_DIR/$p.prompt" >"$out" 2>"$err" & apid=$!
     echo "$apid" >"$OUT_DIR/$p.apid"
     wait "$apid"; ec=$?
+    date +%s >"$OUT_DIR/$p.completed-at"
     echo "$ec" >"$OUT_DIR/$p.rc.tmp" && mv -f "$OUT_DIR/$p.rc.tmp" "$OUT_DIR/$p.rc" ) &
   child=$!
   PIDS+=("$child")
@@ -1019,6 +1035,7 @@ echo
 echo "- Target: $TARGET_LABEL"
 echo "- Panelists: ${PANEL_IDS[*]}"
 echo "- Outputs: \`$OUT_DIR\`"
+echo "- Panelist manifest: \`$PANELIST_MANIFEST\`"
 # Surface the PR URL and repo for PR targets so the synthesizer can wrap
 # `file:line` findings as tappable links via skills/panel-review/pr-line-url.sh
 # without re-parsing the prompt file. Only emitted in PR mode.
@@ -1027,34 +1044,88 @@ echo "- Outputs: \`$OUT_DIR\`"
 [[ -n "$FOCUS" ]] && echo "- Focus: $FOCUS"
 echo
 
-# Extract the model id from a panelist's stdout. Each prompt instructs the
-# panelist to print `Model: <id>` as the very first line of its output, so the
-# script can label per-panelist sections / heartbeats with the actual model
-# that produced the review (e.g. "## codex / gpt-5.5 (exit 0)") without having
-# to introspect each CLI's default-model config.
+# ----- Model resolution -------------------------------------------------------
 #
-# Falls back to the env var override if the panelist's first line isn't a
-# recognisable Model: line, then to a literal "?". `head -n1` so we never scan
-# beyond the first line — Model: appearing anywhere later in the output should
-# not influence the header.
-extract_model_label() {
-  local p="$1"
-  local fallback="$2"
-  local first_line=""
+# A panelist's model label appears in its section heading, in its heartbeat, and
+# — via the skill's synthesis step — in every `Flagged by:` attribution. It has
+# to be right.
+#
+# Do NOT trust the panelist's own `Model:` line for this. A model naming its own
+# point release is guessing: ask two codex panelists pinned to different models
+# and both cheerfully answer "gpt-5". The self-report is still recorded, because
+# a disagreement between it and reality is worth seeing, but it never wins.
+#
+# dash-p writes an authoritative metadata envelope per panelist (--meta-file,
+# set in build_argv). Its `model_resolved` is what the harness actually ran,
+# and dash-p writes it even when the run fails. That single source replaces the
+# per-backend config probing (`codex doctor`, Claude's `modelUsage`) this script
+# would otherwise have to do itself.
+#
+# Order: dash-p metadata > the model pinned on the spec > the backend's env
+# default > the panelist's self-report > unknown.
+#
+# Sets RESOLVED_MODEL and RESOLVED_MODEL_SOURCE
+# (runtime | explicit | environment | self_report | unknown).
+RESOLVED_MODEL=""
+RESOLVED_MODEL_SOURCE=""
+
+# Read one string field from dash-p's single-object metadata JSON. Prefers jq,
+# falls back to grep so jq never becomes a hard dependency for standalone
+# panel-review users. A null or absent field yields empty.
+meta_field() {
+  local file="$1" key="$2" val=""
+  [[ -s "$file" ]] || return 0
+  if command -v jq >/dev/null 2>&1; then
+    val="$(jq -r --arg k "$key" '.[$k] // empty' "$file" 2>/dev/null || true)"
+  else
+    val="$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$file" 2>/dev/null \
+           | head -n1 | sed -E 's/.*:[[:space:]]*"(.*)"$/\1/' || true)"
+  fi
+  [[ "$val" == "null" ]] && val=""
+  printf '%s' "$val"
+}
+
+# The panelist's own claim about its model, from the mandated first output line.
+# `head -n1` so a later `Model:` in the prose can never influence the label.
+self_reported_model() {
+  local p="$1" first_line="" label
   [[ -s "$OUT_DIR/$p.out" ]] && first_line="$(head -n1 "$OUT_DIR/$p.out" 2>/dev/null || true)"
   case "$first_line" in
     Model:*)
-      local label="${first_line#Model:}"
-      # Trim leading whitespace (single space is the common case after `Model:`).
+      label="${first_line#Model:}"
+      # Trim leading whitespace (a single space is the common case).
       label="${label# }"
       label="${label#"${label%%[![:space:]]*}"}"
-      [[ -n "$label" ]] && { echo "$label"; return; }
+      printf '%s' "$label"
       ;;
   esac
-  if [[ -n "$fallback" ]]; then
-    echo "$fallback"
-  else
-    echo "?"
+}
+
+resolve_model() {
+  local p="$1" m
+  RESOLVED_MODEL=""
+  RESOLVED_MODEL_SOURCE="unknown"
+
+  m="$(meta_field "$OUT_DIR/$p.meta.json" model_resolved)"
+  # dash-p writes the literal "unknown" when the harness died before it could
+  # learn what ran — a timeout, an auth failure. That is the absence of an
+  # answer, not an answer. Fall through instead of labelling the panelist
+  # "unknown" and claiming runtime provenance for a value nobody resolved.
+  case "$m" in unknown|Unknown|UNKNOWN) m="" ;; esac
+  if [[ -n "$m" ]]; then
+    RESOLVED_MODEL="$m"; RESOLVED_MODEL_SOURCE="runtime"; return
+  fi
+  m="$(panel_model "$p")"
+  if [[ -n "$m" ]]; then
+    RESOLVED_MODEL="$m"; RESOLVED_MODEL_SOURCE="explicit"; return
+  fi
+  m="$(effective_model "$p")"
+  if [[ -n "$m" ]]; then
+    RESOLVED_MODEL="$m"; RESOLVED_MODEL_SOURCE="environment"; return
+  fi
+  m="$(self_reported_model "$p")"
+  if [[ -n "$m" ]]; then
+    RESOLVED_MODEL="$m"; RESOLVED_MODEL_SOURCE="self_report"; return
   fi
 }
 
@@ -1094,15 +1165,27 @@ panelist_error_reason() {
 
 print_section() {
   local p="$1"
-  local rc_val
+  local rc_val started_at completed_at duration_ms
   rc_val="$(cat "$OUT_DIR/$p.rc" 2>/dev/null || echo "?")"
-  # Fall back to the panelist's resolved model (explicit spec model, else the
-  # backend's *_MODEL default) when the panelist did not self-report a Model:
-  # line as its first output line.
-  local fallback_model
-  fallback_model="$(effective_model "$p")"
-  local model_label
-  model_label="$(extract_model_label "$p" "$fallback_model")"
+  # Validate rather than trusting cat's exit status: an existing-but-empty file
+  # makes cat succeed with empty output, so `|| date` would never fire and the
+  # manifest would carry an empty column a consumer must then reject. A panelist
+  # skipped before launch (missing backend CLI) has no timestamps at all.
+  started_at="$(cat "$OUT_DIR/$p.started-at" 2>/dev/null || true)"
+  completed_at="$(cat "$OUT_DIR/$p.completed-at" 2>/dev/null || true)"
+  [[ "$started_at" =~ ^[0-9]+$ ]] || started_at="$(date +%s)"
+  [[ "$completed_at" =~ ^[0-9]+$ ]] || completed_at="$(date +%s)"
+  duration_ms=$(( (completed_at - started_at) * 1000 ))
+  (( duration_ms < 0 )) && duration_ms=0
+
+  # Statement call, not $( ): resolve_model reports through globals.
+  resolve_model "$p"
+  local model_label="$RESOLVED_MODEL"
+  local model_source="$RESOLVED_MODEL_SOURCE"
+  [[ -n "$model_label" ]] || model_label="?"
+  local reported_model
+  reported_model="$(self_reported_model "$p")"
+  [[ -n "$reported_model" ]] || reported_model="?"
 
   # A panelist that exits non-zero OR produces no stdout has failed to deliver a
   # review (the prompt mandates at least the Model:/Goal:/Approach:/Purpose:/
@@ -1114,8 +1197,27 @@ print_section() {
   [[ -s "$OUT_DIR/$p.out" ]] || empty=1
   local failed=0
   { [[ "$rc_val" != "0" ]] || (( empty )); } && failed=1
+  local panel_status="contributed"
+  (( failed )) && panel_status="failed"
   local reason=""
   (( failed )) && reason="$(panelist_error_reason "$p" "$rc_val")"
+  local backend approach
+  backend="$(panel_backend "$p")"
+  approach="$(effective_approach "$p")"
+  [[ -n "$approach" ]] || approach="standard"
+  # Every field must stay one physical TSV field. A model self-report is
+  # untrusted panelist output, so strip the separators before writing the
+  # machine-readable handoff.
+  model_label="${model_label//$'\t'/ }"
+  model_label="${model_label//$'\r'/ }"
+  model_label="${model_label//$'\n'/ }"
+  reported_model="${reported_model//$'\t'/ }"
+  reported_model="${reported_model//$'\r'/ }"
+  reported_model="${reported_model//$'\n'/ }"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$p" "$backend" "$model_label" "$model_source" "$reported_model" \
+    "$approach" "$panel_status" "$rc_val" "$started_at" "$completed_at" \
+    "$duration_ms" >> "$PANELIST_MANIFEST"
 
   echo "## ${p} / ${model_label} (exit ${rc_val})"
   echo
