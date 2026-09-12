@@ -6,6 +6,6 @@
   "license": "MIT",
   "scripts": {
     "deploy": "npx skills add . --skill '*' --global",
-    "test": "bash skills/panel-review/tests/incremental-pr.sh"
+    "test": "bash skills/panel-review/tests/incremental-pr.sh && bash skills/panel-review/tests/model-attribution.sh"
   }
 }
