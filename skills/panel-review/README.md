@@ -107,6 +107,14 @@ Each reviewer gets a unique id (e.g. `opencode-opencode-go-glm-5.2`) so two
 reviewers on the same backend keep separate worktrees, output files, and report
 sections.
 
+The output directory also holds `panelists.tsv`: one row per panelist with the
+model used in headings and heartbeats, where that label came from, the model the
+panelist claimed for itself, its approach, status, exit code, and timings. The
+label comes from dash-p's run-metadata envelope, so it is the model that
+actually ran rather than the one the model believes it is. Anything measuring
+the panel should read this file instead of parsing a model's guess out of its
+prose.
+
 ## What it does
 
 - Auto-detects whether the current branch has an open GitHub PR and switches to

@@ -236,21 +236,35 @@ When _not_ to use:
      `in_progress`, proceed to steps 7–8, then mark it `completed`.
 7. **Read the script's combined output** — it prints one section per panelist
    with their raw findings, plus a tempdir path containing each panelist's
-   stdout/stderr. Wait for _all_ panelists to finish before synthesizing;
+   stdout/stderr and `panelists.tsv`. That manifest is the machine-readable
+   panel composition: canonical model, model source, raw self-report, approach,
+   status, exit code, and timings. Wait for _all_ panelists to finish before
+   synthesizing;
    partial output is fine to _show_ the user during the wait, but consensus /
    disagreement analysis needs every panelist's verdict.
 8. **Synthesize the findings** in your reply to the user. The synthesized
    summary is the primary deliverable — most readers will not scroll up to the
    per-panelist sections, so put the substance here.
 
-   **Always carry the panelist's self-reported model into the summary.** Each
-   panelist starts its output with a `Model: <id>` line; the script also exposes
-   it in the `## <name> / <model> (exit N)` per-panelist section heading. Use
-   the model name everywhere you would otherwise just say the panelist's name
-   (e.g. `Flagged by: codex (gpt-5.5)`, or in a misinterpretation callout like
-   `codex (gpt-5.5) appears to have misinterpreted the change`). If a panelist
-   reported `Model: unknown`, surface that as `(unknown)` rather than silently
-   omitting the model.
+   **Always carry each panelist's model into the summary, and take it from the
+   section heading — not from the panelist's own `Model:` line.** The script
+   resolves the model for you and prints it in the `## <id> / <model> (exit N)`
+   heading, preferring dash-p's run-metadata envelope (the model the harness
+   actually ran), then the model pinned via `--panelist backend:model`, then the
+   backend's env default, and only then the panelist's self-report. The same
+   canonical value and its provenance are in `panelists.tsv`. Trust that order:
+   a model naming its own point release is guessing, so two codex panelists on
+   different models will both answer `gpt-5` if you ask them.
+
+   Use the heading's model everywhere you would otherwise just say the
+   panelist's name (e.g. `Flagged by: codex (gpt-5.6-sol)`, or in a
+   misinterpretation callout like
+   `codex (gpt-5.6-sol) appears to have misinterpreted the change`). A heading
+   showing `?` means the model could not be resolved — surface that as
+   `(unknown)` rather than silently omitting it. If two panelists share a
+   backend and still resolve to the same label, disambiguate with the panelist
+   id from the heading (e.g. `codex-gpt-5.5` vs `codex-gpt-5.6-sol`) so the
+   reader can tell whose finding is whose.
 
    **Tappable links to PR file:line.** When the target is a PR (the script's
    combined-output header shows `Target: PR #N` and emits `- PR URL: <url>`),
@@ -807,6 +821,8 @@ Other behavior worth knowing:
   the panelist.
 - The combined output references a tempdir (`/tmp/panel-review-XXXXXX/`) — read
   any panelist's full stdout/stderr from there if the inline excerpt is not
-  enough.
+  enough. Its `panelists.tsv` is the deterministic integration surface for
+  metrics; do not parse the raw `Model:` line when a downstream system needs
+  attribution.
 - Panelists pick up the project's `AGENTS.md` / `CLAUDE.md` — intentional, but
   worth knowing if those files would bias the review.
