@@ -34,6 +34,8 @@ panelists from your phrasing:
 - "panel review my latest changes on this branch"
 - "panel review my staged changes"
 - "panel review PR 27"
+- "panel review only what changed on PR 27 since abc1234" — assigns just that
+  snapshot transition instead of the whole PR
 - "panel review this branch against main"
 - "panel review the auth changes, focus on session handling"
 - "panel review with just codex and claude"
@@ -111,9 +113,18 @@ sections.
   PR mode by default — no more "stale local main" reviews flagging commits that
   are not actually in the PR.
 - For PR targets, panelists fetch the live diff and existing review comments
-  themselves via `gh` (no embedded diff in the prompt). For `--base` /
-  `--commit` targets it builds a unified diff with `git` and embeds it in the
-  prompt. For `--uncommitted` / `--staged` it embeds the local diff.
+  themselves via `gh` (no embedded diff in the prompt). Add `--since <sha>` to
+  assign only the exact last-reviewed-snapshot to current-head delta; the script
+  uses a two-dot diff and fails closed if either snapshot is unavailable.
+  Incremental panelists also trace changed contracts and invariants into
+  affected current-tree consumers, including code changed earlier in the PR,
+  while reporting only defects the assigned delta introduced or exposed. For
+  `--base` / `--commit` targets it builds a unified diff with `git` and embeds
+  it in the prompt. For `--uncommitted` / `--staged` it embeds the local diff.
+- PR panelists run with `dash-p --network full`, because the PR prompt requires
+  `gh` reads against GitHub. It is a network tier, not a domain allowlist, so
+  the prompt is what forbids GitHub writes and other outward mutations.
+  `--base`, `--commit`, `--uncommitted`, and `--staged` do not request it.
 - For any target with a real ref (`--pr` / `--base` / `--commit`), spins up **a
   dedicated, throwaway git worktree per panelist** pinned to the same commit.
   Panelists can run tests, install deps, and grep callers in parallel without

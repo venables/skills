@@ -5,6 +5,7 @@
   "description": "Matt Venables' Claude Code / agent skills",
   "license": "MIT",
   "scripts": {
-    "deploy": "npx skills add . --skill '*' --global"
+    "deploy": "npx skills add . --skill '*' --global",
+    "test": "bash skills/panel-review/tests/incremental-pr.sh"
   }
 }
