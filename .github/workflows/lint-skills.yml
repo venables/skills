@@ -29,3 +29,6 @@ jobs:
 
       - name: Validate every skill
         run: ./scripts/lint-skills.sh
+
+      - name: Run skill script tests
+        run: npm test
