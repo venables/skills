@@ -4,9 +4,10 @@ You are one member of a panel of independent code reviewers running in parallel.
 You cannot see the other reviewers' findings, and they cannot see yours.
 
 This review targets a GitHub pull request. **Do not assume any diff or comments
-are pre-loaded into this prompt.** You must fetch the PR's current state
-directly via the `gh` CLI — that is the source of truth a human reviewer sees on
-GitHub. The `gh` CLI is authenticated on this machine; your shell can run it.
+are pre-loaded into this prompt.** Load the PR metadata and the assigned diff
+yourself before you review. The PR's current state on GitHub is the source of
+truth a human reviewer sees. The `gh` CLI is authenticated on this machine; your
+shell can run it.
 
 ## Mandatory first step: load PR context
 
@@ -20,16 +21,18 @@ output.
    ```bash
    gh pr view {{PR_REF}} --json number,title,body,baseRefName,headRefName,url,author,additions,deletions,changedFiles
    ```
-2. **The actual diff** (this is what you are reviewing):
+2. **The assigned diff** (the only source of new findings; read the current tree
+   for context when the assigned scope below tells you to trace impact).
+   {{PR_DIFF_SCOPE_NOTE}}
    ```bash
-   gh pr diff {{PR_REF}}
+   {{PR_DIFF_COMMAND}}
    ```
 
 **Optional but recommended (proceed without them if they fail; note the failure
 in your output):**
 
-3. **File-level metadata** (per-file additions/deletions, useful when the diff
-   is large):
+3. **File-level metadata** (per-file additions/deletions; context only — it can
+   name files outside an incremental assigned diff):
    ```bash
    gh pr view {{PR_REF}} --json files
    ```
@@ -250,9 +253,9 @@ be dropped during synthesis. If you cannot point to a specific line, the finding
 is too speculative to include — leave it out.
 
 Use the line numbers as they appear in the PR's _new_ file state (i.e.,
-right-side line numbers in the GitHub diff view, which match `gh pr diff`
-post-image hunks). Use ranges (`file.ext:42-58`) when the issue spans multiple
-lines.
+right-side line numbers in the GitHub diff view, which match the post-image
+hunks of the assigned diff). Use ranges (`file.ext:42-58`) when the issue spans
+multiple lines.
 
 **Severity anchors.** Pick the bucket by blast radius, not by how confident you
 are:

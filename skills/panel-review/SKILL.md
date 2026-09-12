@@ -85,6 +85,14 @@ When _not_ to use:
    - "PR 27" / "pr #27" / "/panel-review pr 27" / a
      `github.com/<owner>/<repo>/pull/N` URL → `--pr <N or URL>` (requires the
      `gh` CLI).
+   - "only what changed since SHA" / "just re-review the new commits" for a PR →
+     `--pr <N> --since <SHA>`. The worktree still pins to the current PR head,
+     but the panelists are assigned only the two-dot snapshot transition
+     `<SHA>..current-head`; use it for a re-review where SHA is the head you
+     reviewed last. The assigned delta is the causal boundary, not the
+     inspection boundary: panelists also trace changed contracts and invariants
+     into affected current-tree consumers, including code changed earlier in the
+     PR, but report only defects the delta introduced or exposed.
    - "vs main" / "against develop" without a PR number → `--base <branch>`.
    - Specific SHA → `--commit <sha>`.
    - "uncommitted", "my staged changes", "my dirty work" → `--uncommitted` /
@@ -782,7 +790,11 @@ The script handles two cases internally:
   run tests, and install dev deps. PR targets additionally use an
   instruction-style prompt where panelists fetch the diff and existing review
   comments via `gh` themselves (live remote state — no stale-base drift, no
-  diff-size cap).
+  diff-size cap). With `--since <sha>` the assigned diff narrows to the exact
+  local two-dot `<sha>..current-head` delta instead; the script fetches both
+  snapshots first and fails rather than silently widening scope when either one
+  is missing. Panelists then add a bounded backward-impact pass through affected
+  consumers in the current tree.
 
 Other behavior worth knowing:
 

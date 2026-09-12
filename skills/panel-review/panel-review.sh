@@ -27,6 +27,7 @@ APPROACHES_DIR="$SCRIPT_DIR/prompts/approaches"   # one <name>.md fragment per r
 # ----- Defaults -----
 TARGET="uncommitted"           # uncommitted | staged | base:<ref> | commit:<sha> | pr:<ref>
 TARGET_EXPLICIT=0              # set to 1 by any --uncommitted/--staged/--base/--commit/--pr flag
+SINCE_SHA=""                   # with --pr: the exact snapshot a previous review already covered
 FOCUS=""
 RUN_APPROACH=""                # default review approach (empty = standard); per-panelist /approach overrides it
 OUT_DIR=""
@@ -189,6 +190,15 @@ Targets (pick one; default tries to auto-detect a PR for the current branch via
                           existing review comments themselves via the 'gh' CLI
                           (no embedded diff in the prompt — eliminates stale-base
                           bugs and the MAX_DIFF_BYTES cap).
+  --since SHA             With --pr, assign only the exact SHA..current-head
+                          snapshot transition instead of the whole PR diff. Use
+                          it for a re-review where SHA is the head you reviewed
+                          last. The worktree still pins to the current PR head.
+                          The assigned delta is the causal boundary, not the
+                          inspection boundary: panelists trace the delta's impact
+                          into the rest of the current tree, including code
+                          changed earlier in the PR, but report only defects the
+                          delta introduced or exposed.
 
 Options:
   --focus TEXT            Optional focus / context for the reviewers
@@ -269,6 +279,7 @@ while [[ $# -gt 0 ]]; do
     --base)        [[ $# -ge 2 ]] || die "--base needs a branch"; TARGET="base:$2"; TARGET_EXPLICIT=1; shift 2 ;;
     --commit)      [[ $# -ge 2 ]] || die "--commit needs a SHA"; TARGET="commit:$2"; TARGET_EXPLICIT=1; shift 2 ;;
     --pr)          [[ $# -ge 2 ]] || die "--pr needs a number or URL"; TARGET="pr:$2"; TARGET_EXPLICIT=1; shift 2 ;;
+    --since)       [[ $# -ge 2 ]] || die "--since needs a commit SHA"; SINCE_SHA="$2"; shift 2 ;;
     --focus)       [[ $# -ge 2 ]] || die "--focus needs text"; FOCUS="$2"; shift 2 ;;
     --approach)    [[ $# -ge 2 ]] || die "--approach needs a name"; validate_approach "$2" "--approach"; RUN_APPROACH="$2"; shift 2 ;;
     --panelist)
@@ -340,6 +351,20 @@ if (( !TARGET_EXPLICIT )) && command -v gh >/dev/null 2>&1 && command -v git >/d
       echo "panel-review: branch has PR #$auto_pr_num (state: $auto_pr_state) — not auto-switching. Pass --pr $auto_pr_num explicitly to review it anyway." >&2
     fi
   fi
+fi
+
+# Validate --since against the resolved target. It only means something for a PR:
+# every other target already names its own two endpoints, and an incremental
+# review needs a PR head to compare the previous snapshot against. Validating
+# after auto-detect (not during parsing) so `--since <sha>` still works on a
+# branch whose PR was detected rather than passed explicitly.
+if [[ -n "$SINCE_SHA" ]]; then
+  [[ "$SINCE_SHA" =~ ^[0-9a-fA-F]{7,64}$ ]] \
+    || die "--since needs a 7-64 character hexadecimal commit SHA"
+  case "$TARGET" in
+    pr:*) ;;
+    *) die "--since is only valid with --pr (target is: $TARGET)" ;;
+  esac
 fi
 
 # Validate --checkout against the resolved target. For pr/base/commit it's a
@@ -493,6 +518,47 @@ if (( !INSTRUCTION_MODE )); then
   [[ -s "$DIFF_FILE" ]] || die "diff is empty for target: $TARGET"
 fi
 
+# Derive a fetchable URL for a PR's head repository. Mirrors origin's URL shape
+# (SSH vs HTTPS) so the fetch uses whatever auth this machine already has set up
+# — hardcoding HTTPS hangs on a credential prompt for SSH-only users with no
+# HTTPS credential helper. Falls back to HTTPS (host taken from the canonical PR
+# url, so GitHub Enterprise works) when origin is missing or in an unrecognized
+# shape. Returns non-zero when the head repo is unknown (a deleted fork).
+#
+# A function rather than an inline case because two call sites need it: the
+# head-SHA fetch below, and the --since fetch of the previously reviewed
+# snapshot — which also fires on the path where the head SHA was already local
+# and no head url was ever computed.
+pr_head_remote_url() { # canonical_pr_url head_repo_name_with_owner
+  local canonical_url="$1" head_nwo="$2" host https_url origin_url authority
+  [[ -n "$canonical_url" && -n "$head_nwo" && "$head_nwo" != "null" ]] || return 1
+  host="$(echo "$canonical_url" | sed -E 's|^(https?://[^/]+)/.*|\1|')"
+  https_url="${host}/${head_nwo}.git"
+  origin_url="$(git remote get-url origin 2>/dev/null || true)"
+  case "$origin_url" in
+    ssh://*)
+      # ssh://[user@]host[:port]/owner/repo[.git]
+      authority="${origin_url#ssh://}"
+      authority="${authority%%/*}"
+      printf 'ssh://%s/%s.git' "$authority" "$head_nwo"
+      ;;
+    *://*)
+      # https/http/git/file URL — use the HTTPS fallback.
+      printf '%s' "$https_url"
+      ;;
+    *:*)
+      # SCP-like SSH: [user@]host:path. The bare `host:path` form (no user@) is
+      # common with ~/.ssh/config Host aliases like `github-work:owner/repo.git`,
+      # so we don't require `@`. The earlier *://* arm has already consumed every
+      # URL-form remote, so any colon left here is the SCP separator.
+      printf '%s:%s.git' "${origin_url%%:*}" "$head_nwo"
+      ;;
+    *)
+      printf '%s' "$https_url"
+      ;;
+  esac
+}
+
 # ----- Optional: materialize one worktree per panelist for deep-mode -----
 #
 # Why one worktree per panelist (CI matrix style): in --checkout mode, panelists
@@ -559,41 +625,45 @@ if (( CHECKOUT_MODE )); then
           msg+=$'.'
           die "$msg"
         fi
-        # Mirror origin's URL shape (SSH vs HTTPS) so the fetch uses whatever
-        # auth this machine has already set up. Hardcoding HTTPS hangs on a
-        # credential prompt for users with SSH-only auth and no HTTPS
-        # credential helper. Falls back to HTTPS (host derived from pr_url so
-        # GitHub Enterprise works) when origin is missing or in an
-        # unrecognized shape.
-        pr_host="$(echo "$pr_url" | sed -E 's|^(https?://[^/]+)/.*|\1|')"
-        pr_head_https_url="${pr_host}/${pr_head_nwo}.git"
-        origin_url="$(git remote get-url origin 2>/dev/null || true)"
-        case "$origin_url" in
-          ssh://*)
-            # ssh://[user@]host[:port]/owner/repo[.git]
-            ssh_authority="${origin_url#ssh://}"
-            ssh_authority="${ssh_authority%%/*}"
-            pr_head_url="ssh://${ssh_authority}/${pr_head_nwo}.git"
-            ;;
-          *://*)
-            # https/http/git/file URL — use HTTPS fallback.
-            pr_head_url="$pr_head_https_url"
-            ;;
-          *:*)
-            # SCP-like SSH: [user@]host:path. The bare `host:path` form (no
-            # user@) is common with ~/.ssh/config Host aliases like
-            # `github-work:owner/repo.git`, so we don't require `@`. The
-            # earlier *://* arm has already consumed every URL-form remote,
-            # so any colon left here is the SCP separator.
-            pr_head_url="${origin_url%%:*}:${pr_head_nwo}.git"
-            ;;
-          *)
-            pr_head_url="$pr_head_https_url"
-            ;;
-        esac
+        pr_head_url="$(pr_head_remote_url "$pr_url" "$pr_head_nwo")" \
+          || die "--pr: could not derive a fetch URL for head repository '$pr_head_nwo'"
         git fetch --quiet "$pr_head_url" "$pr_head_sha" >&2 \
           || die "git fetch $pr_head_url $pr_head_sha failed"
         WORKTREE_REF="$pr_head_sha"
+      fi
+
+      # --since narrows what the panelists are ASSIGNED, not what they may read.
+      # The worktree stays pinned to the current PR head above, so the tree is
+      # the same one a full review would see; only the diff handed to the
+      # panelists shrinks to the exact two-dot snapshot transition. Two-dot (not
+      # three-dot) on purpose: we want what actually changed between the two
+      # snapshots, not a merge-base range that would drag in base-branch commits
+      # the previous review already covered.
+      #
+      # Fail closed rather than silently widening scope: if the previous
+      # snapshot cannot be fetched, or the transition is empty, stop. A
+      # re-review that quietly falls back to the whole PR diff would re-report
+      # everything the last round already handled.
+      if [[ -n "$SINCE_SHA" ]]; then
+        [[ "$SINCE_SHA" != "$WORKTREE_REF" ]] \
+          || die "--since resolves to the current PR head ($WORKTREE_REF); there are no new changes to review"
+        if ! git cat-file -e "${SINCE_SHA}^{commit}" 2>/dev/null; then
+          pr_head_url="$(pr_head_remote_url "$pr_url" "$pr_head_nwo")" \
+            || die "--since: previous reviewed commit $SINCE_SHA is not in this repo and the PR head repository is unavailable (likely a deleted fork)"
+          git fetch --quiet "$pr_head_url" "$SINCE_SHA" >&2 \
+            || die "--since: could not fetch previous reviewed commit $SINCE_SHA from $pr_head_url"
+        fi
+        # git diff --quiet exits 0 for no changes and 1 for changes; anything
+        # else is a real failure (bad ref, corrupt object) and must not be read
+        # as "there is a delta".
+        if git diff --quiet "$SINCE_SHA..$WORKTREE_REF"; then
+          die "--since: $SINCE_SHA..$WORKTREE_REF has no tree changes to review"
+        else
+          diff_rc=$?
+          [[ "$diff_rc" -eq 1 ]] \
+            || die "--since: could not compare $SINCE_SHA..$WORKTREE_REF (git diff exited $diff_rc)"
+        fi
+        TARGET_LABEL+=" (incremental: ${SINCE_SHA}..${WORKTREE_REF})"
       fi
       ;;
     base:*)
@@ -610,12 +680,18 @@ if (( CHECKOUT_MODE )); then
   # scope line surfaces that the first time the script runs, rather than
   # after panelists return findings about unrelated code.
   scope_base_ref=""
+  scope_diff_op="..."
   case "$TARGET" in
     pr:*)
-      # Only echo a scope line when we can compute it locally. The PR's base
-      # is on the remote (origin/<pr_base>); if the user hasn't fetched it,
+      if [[ -n "$SINCE_SHA" ]]; then
+        # Report the assigned incremental scope, not the whole PR — two-dot to
+        # match the range the panelists actually get.
+        scope_base_ref="$SINCE_SHA"
+        scope_diff_op=".."
+      # Only echo a full-PR scope line when we can compute it locally. The PR's
+      # base is on the remote (origin/<pr_base>); if the user hasn't fetched it,
       # skip rather than guess. Panelists fetch it themselves via gh.
-      if [[ -n "${pr_base:-}" ]] && git rev-parse --verify "origin/${pr_base}" >/dev/null 2>&1; then
+      elif [[ -n "${pr_base:-}" ]] && git rev-parse --verify "origin/${pr_base}" >/dev/null 2>&1; then
         scope_base_ref="origin/${pr_base}"
       fi
       ;;
@@ -628,7 +704,7 @@ if (( CHECKOUT_MODE )); then
   esac
   if [[ -n "$scope_base_ref" ]] && git rev-parse --verify "$scope_base_ref" >/dev/null 2>&1; then
     n_commits=$(git rev-list --count "${scope_base_ref}..${WORKTREE_REF}" 2>/dev/null || echo "?")
-    shortstat=$(git diff --shortstat "${scope_base_ref}...${WORKTREE_REF}" 2>/dev/null | sed 's/^ *//')
+    shortstat=$(git diff --shortstat "${scope_base_ref}${scope_diff_op}${WORKTREE_REF}" 2>/dev/null | sed 's/^ *//')
     echo "panel-review: scope vs ${scope_base_ref}: ${n_commits} commits, ${shortstat:-no diff}" >&2
   fi
 
@@ -692,10 +768,22 @@ PROMPT_FILE="$OUT_DIR/prompt.md"
 # the placeholders — non-PR templates just have nothing to replace.
 TEMPLATE_BODY="$(cat "$ACTIVE_TEMPLATE")"
 if (( INSTRUCTION_MODE )); then
+  # The diff command the panelist runs, and the one-line note that tells it what
+  # that command is scoped to. A full review pulls the live remote diff; an
+  # incremental one runs a local two-dot diff between the two snapshots, which
+  # the worktree already contains.
+  PR_DIFF_COMMAND="gh pr diff $pr_ref"
+  PR_DIFF_SCOPE_NOTE="Review the full current PR diff."
+  if [[ -n "$SINCE_SHA" ]]; then
+    PR_DIFF_COMMAND="git diff --no-ext-diff $SINCE_SHA..$WORKTREE_REF"
+    PR_DIFF_SCOPE_NOTE="Review only the exact previous-reviewed-snapshot to current-head transition; do not substitute the full PR diff or a merge-base diff."
+  fi
   TEMPLATE_BODY="${TEMPLATE_BODY//\{\{PR_REF\}\}/$pr_ref}"
   TEMPLATE_BODY="${TEMPLATE_BODY//\{\{PR_NUMBER\}\}/$pr_num}"
   TEMPLATE_BODY="${TEMPLATE_BODY//\{\{PR_REPO\}\}/$pr_repo}"
   TEMPLATE_BODY="${TEMPLATE_BODY//\{\{PR_URL\}\}/$pr_url}"
+  TEMPLATE_BODY="${TEMPLATE_BODY//\{\{PR_DIFF_COMMAND\}\}/$PR_DIFF_COMMAND}"
+  TEMPLATE_BODY="${TEMPLATE_BODY//\{\{PR_DIFF_SCOPE_NOTE\}\}/$PR_DIFF_SCOPE_NOTE}"
 fi
 
 {
@@ -713,6 +801,29 @@ fi
     echo "- Repo (owner/name) for \`gh api\` calls: \`$pr_repo\`"
     [[ -n "$pr_url"  ]] && echo "- URL: $pr_url"
     [[ -n "$pr_base" ]] && echo "- Base branch: \`$pr_base\`"
+    if [[ -n "$SINCE_SHA" ]]; then
+      echo "- Previous reviewed head: \`$SINCE_SHA\`"
+      echo "- Current reviewed head: \`$WORKTREE_REF\`"
+      echo
+      echo "This is an incremental review. The assigned diff is the causal boundary, not"
+      echo "the inspection boundary. Attribute findings only to changes in"
+      echo "\`git diff --no-ext-diff $SINCE_SHA..$WORKTREE_REF\`, but inspect enough of"
+      echo "the current tree to find assumptions that transition invalidates."
+      echo
+      echo "After you review the changed hunks, do a mandatory bounded backward-impact pass:"
+      echo
+      echo "- Identify changed contracts and invariants: exported APIs/types, data/schema"
+      echo "  shapes, config, auth boundaries, error semantics, ordering, concurrency, and"
+      echo "  persistence behavior."
+      echo "- Trace only their affected consumers in the current tree (use rg/grep and the"
+      echo "  PR file metadata), prioritizing code changed earlier in this PR."
+      echo "- Inspect reachable consumers deeply enough to decide whether an older assumption"
+      echo "  is now false; do not reread unrelated parts of the PR."
+      echo "- A finding may cite an older line only when this snapshot transition introduced"
+      echo "  or exposed the defect. State that causal link in the finding."
+      echo "- Do not report unrelated pre-existing problems. If there are no findings, make"
+      echo "  the NO_FINDINGS sentence say the backward-impact pass was completed."
+    fi
   fi
   echo
   echo "## Workspace"
