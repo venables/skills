@@ -795,6 +795,10 @@ The script handles two cases internally:
   snapshots first and fails rather than silently widening scope when either one
   is missing. Panelists then add a bounded backward-impact pass through affected
   consumers in the current tree.
+- **PR panelists get `dash-p --network full`**, because the PR prompt requires
+  `gh` reads. It is a network tier, not a domain allowlist, so the prompt stays
+  the only thing forbidding GitHub writes and other outward mutations. `--base`,
+  `--commit`, `--uncommitted`, and `--staged` do not request it.
 
 Other behavior worth knowing:
 

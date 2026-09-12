@@ -903,6 +903,10 @@ PROMPT_CONTENT="$(cat "$PROMPT_FILE")"
 #               run tests/build commands. Network/destructive actions are gated by
 #               the prompt only — no sandbox-level guarantee.
 #
+# PR targets additionally request `--network full`, because their prompt requires
+# `gh` reads against GitHub. It is a tier, not an allowlist: the prompt remains
+# the only thing forbidding GitHub writes and other outward mutations.
+#
 # Sets the global `argv` array (bash 3.2 has no clean way to return one).
 build_argv() {
   local id="$1"
@@ -929,6 +933,14 @@ build_argv() {
     panel_cwd="$PWD"
     argv+=(--cwd "$panel_cwd" --perms read-only)
   fi
+
+  # PR panelists must reach GitHub: `gh pr view` is mandatory in the PR prompt,
+  # and a full (non---since) review also fetches the diff over the network. Ask
+  # dash-p for the full network tier so a backend whose permission tier would
+  # otherwise sandbox the network (codex) can still run those reads. This is a
+  # tier, not a domain allowlist, so the prompt stays the enforcement boundary
+  # for the no-write / no-mutation rules.
+  (( INSTRUCTION_MODE )) && argv+=(--network full)
 
   # Feed the prompt on stdin, not as a positional argv element. A large embedded
   # diff can push the prompt past Linux's per-argument cap (MAX_ARG_STRLEN, 128KB)

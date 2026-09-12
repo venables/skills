@@ -121,6 +121,10 @@ sections.
   while reporting only defects the assigned delta introduced or exposed. For
   `--base` / `--commit` targets it builds a unified diff with `git` and embeds
   it in the prompt. For `--uncommitted` / `--staged` it embeds the local diff.
+- PR panelists run with `dash-p --network full`, because the PR prompt requires
+  `gh` reads against GitHub. It is a network tier, not a domain allowlist, so
+  the prompt is what forbids GitHub writes and other outward mutations.
+  `--base`, `--commit`, `--uncommitted`, and `--staged` do not request it.
 - For any target with a real ref (`--pr` / `--base` / `--commit`), spins up **a
   dedicated, throwaway git worktree per panelist** pinned to the same commit.
   Panelists can run tests, install deps, and grep callers in parallel without
