@@ -3,428 +3,479 @@ name: optimize-agents-md
 description:
   Create, audit, or prune AGENTS.md and CLAUDE.md files following current best
   practices. Use this whenever the user asks to set up, create, add, update,
-  fix, clean up, restructure, or audit an AGENTS.md or CLAUDE.md — or uses
-  casual phrasings like "set this up for Claude", "set this up for agents",
+  fix, clean up, shrink, restructure, or audit an AGENTS.md or CLAUDE.md, or
+  uses casual phrasings like "set this up for Claude", "set this up for agents",
   "make a claude.md", "add agent instructions", "onboard this for Claude Code /
   Cursor / Codex / Copilot / Gemini / Windsurf", "make Claude follow my
-  conventions", or "my CLAUDE.md is too long". Covers the AGENTS.md open
-  standard, cross-tool setups, and monorepo nesting decisions. Also use it
-  proactively when you notice an existing CLAUDE.md / AGENTS.md is long,
-  repetitive, or full of self-evident advice.
+  conventions", "my CLAUDE.md is too long", "we upgraded to Opus 5 / Fable, what
+  can I cut", or "should I delete my CLAUDE.md". Covers the AGENTS.md open
+  standard, Claude Code's native AGENTS.md support, cross-tool setups, monorepo
+  nesting, and model-upgrade audits. Also use it proactively when you notice an
+  existing CLAUDE.md / AGENTS.md is long, repetitive, contradictory, or full of
+  advice the model no longer needs.
 ---
 
 # optimize-agents-md
 
-Write lean, high-compliance `AGENTS.md` files and point `CLAUDE.md` at them — by
-symlink or `@AGENTS.md` import — so every AI coding tool reads the same source
-of truth.
+Write one lean `AGENTS.md` that every AI coding tool reads, including Claude
+Code, which reads it natively since v2.1.277. Keep only two kinds of content:
+facts about this repo the model cannot derive, and conventions that differ from
+what the model would do on its own.
 
 ## Core philosophy
 
-Frontier LLMs reliably follow only **~150-200 instructions per session**, and
-Claude Code's system prompt already consumes about 50 of those slots. Every line
-added to `AGENTS.md` dilutes compliance across _all_ rules, not just the newest
-ones. Ruthless curation is the foundational practice: a focused 60-80 line file
-Claude actually follows beats a 300-line file it mostly ignores.
+Every line in an instruction file is one of two things:
 
-Compliance also decays over long conversations — from 95%+ at messages 1-2 to
-20-60% by messages 6-10. This is why the file should encode _preferences_, not
-hard _requirements_. Hard requirements belong in hooks, formatters, or CI.
-`AGENTS.md` is for the stuff that's hard to enforce mechanically.
+- **Context.** Facts about this repo the model cannot get from the code: the
+  exact test command, the package manager, the decision that contradicts what
+  the code implies, the gotcha that cost someone an afternoon. These lines
+  survive model upgrades.
+- **Compensation.** Lines that patch a weakness of the model you had last year:
+  "always run the tests", "double-check your work", "be thorough", "do not use
+  bullet points", "act like a senior engineer", "CRITICAL: you MUST". These
+  lines rot on every model release. On Claude 5 generation models (Opus 5 and
+  5.5, Sonnet 5, Fable 5 and 5.1) they cause over-verification, literal
+  over-compliance, and contradictions with the model's own system prompt.
 
-**The litmus test for every line:** _"Would removing this line cause Claude to
-make a mistake it wouldn't otherwise make?"_ If no, cut it.
+Anthropic removed over 80% of Claude Code's system prompt for Opus 5 and Fable 5
+with no measured loss on coding evals, and said the same overconstraint lives in
+most CLAUDE.md files. Their guidance: keep the file lightweight, say in a
+sentence what the repo is for, spend the rest on gotchas, and push procedures
+into skills.
+
+Two tests for every line:
+
+1. **Would removing this line cause Claude to make a mistake it would not
+   otherwise make?** If no, cut it.
+2. **Is this line here because of the repo, or because of a model?** Repo: keep
+   it if it passes test 1. Model: cut it, or move it to that tool's own config
+   file if a weaker model in another tool still needs it.
+
+Contradictions cost more than length. Two rules that disagree get resolved
+arbitrarily, and Anthropic found its own transcripts full of "leave
+documentation as appropriate" fighting "DO NOT add comments". Hunt for these
+before counting lines.
+
+The line count matters less than which lines. The one controlled study of
+CLAUDE.md structure found no effect from file size up to 500 lines or from rule
+position, on Claude 4.6 models. The harm comes from wrong lines, contradictory
+lines, and lines that tell a strong model to do what it already does. Cut for
+those reasons. Keep the file short as a consequence.
 
 ## Workflow
 
-Run these stages in order. Stages 1-2 are autonomous discovery. Stage 3 is
-interactive but adaptive — don't pepper the user with questions if the answers
-are obvious from the code.
+Run these stages in order. Stages 1 to 3 are autonomous discovery. Stage 4 is
+interactive but adaptive: do not pepper the user with questions the repo can
+answer.
 
 ### 1. Survey the existing state
 
-Read whatever exists in the project:
+Read whatever exists:
 
-- `AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md`
-- `.claude/` directory (rules, skills, settings)
+- `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`
+- `.claude/` (rules, skills, settings, hooks)
 - `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`
-- `README.md` and any `CONTRIBUTING.md` — commands and conventions worth
-  extracting often live here
+- `README.md` and `CONTRIBUTING.md`, where commands and conventions often live
 
-Note the current line count, how much looks like genuine non-obvious knowledge
-vs filler, and whether the file has grown by accretion without pruning.
+Also check these, because they change the wiring decision in stage 7:
 
-**Treat existing AGENTS.md / CLAUDE.md content as hypotheses, not ground
-truth.** Bloated files routinely describe a stack that drifted years ago —
-libraries that were removed, conventions that were abandoned, architectural
-patterns that never shipped. Before carrying any stack claim forward (e.g. "uses
-React Router / Zustand / Tailwind / MSW"), verify it against the actual
-`package.json`, lockfile, and a quick look at the source. Writing an `AGENTS.md`
-full of phantom dependencies is worse than writing nothing — it actively
-misleads every future agent that reads it.
+- **Ancestor directories.** A `CLAUDE.md` or `CLAUDE.local.md` anywhere above
+  the repo (for example `~/dev/CLAUDE.md`) makes Claude Code skip the repo's
+  `AGENTS.md`. Run `ls` up the tree.
+- **Old workarounds.** A `SessionStart` hook that prints `AGENTS.md`, a
+  `CLAUDE.md` that says "read AGENTS.md" in prose, a `CLAUDE.md` that duplicates
+  `AGENTS.md` verbatim (what `/import` produces), or a symlink.
+- **Claude Code version and provider.** `claude --version` below 2.1.277, Amazon
+  Bedrock, Vertex, Foundry, or telemetry disabled all mean Claude Code cannot
+  read `AGENTS.md` directly.
+
+Note the current line count and how much is context versus compensation versus
+filler.
+
+**Treat existing content as hypotheses, not ground truth.** Bloated files
+routinely describe a stack that drifted: libraries that were removed,
+conventions that were abandoned, patterns that never shipped. Before carrying
+any stack claim forward ("uses Zustand", "uses MSW"), verify it against
+`package.json`, the lockfile, and the source. A file full of phantom
+dependencies misleads every agent that reads it.
 
 ### 2. Discover objective facts
 
-These are the highest-leverage entries in any `AGENTS.md`. Detect them from the
-repo directly rather than asking:
+These are the highest-value lines in any `AGENTS.md`. Detect them from the repo
+rather than asking:
 
-- **Package / dependency manager** — inspect lockfiles: `pnpm-lock.yaml`,
-  `bun.lockb`, `yarn.lock`, `package-lock.json`, `uv.lock`, `poetry.lock`,
-  `Pipfile.lock`, `Cargo.lock`, `go.sum`. Naming a specific tool like `uv` or
-  `bun` has been shown to make agents use it ~160x more often, so this is one of
-  the most valuable things to include.
-- **Test / lint / format / typecheck commands** — extract from `package.json`
-  scripts, `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, `mix.exs`,
-  etc. Prefer the exact invocation with flags.
-- **Unusual tooling** — `bun`, `just`, `mise`, `asdf`, `nix`, `devbox`, `turbo`,
-  `nx`, `rush`, custom wrappers.
-- **Framework / runtime** — only when it informs a non-obvious convention. "Uses
-  Next.js" is noise; "Uses Next.js App Router, not Pages Router" may earn its
-  place.
-- **Monorepo structure** — workspace files (`pnpm-workspace.yaml`, `turbo.json`,
-  `nx.json`, `lerna.json`, `rush.json`, `Cargo.toml` workspace, `go.work`) and
-  top-level layout (`apps/`, `packages/`, `services/`, `infra/`). See the
-  Monorepo section below.
+- **Package manager.** Inspect lockfiles: `pnpm-lock.yaml`, `bun.lockb` or
+  `bun.lock`, `yarn.lock`, `package-lock.json`, `uv.lock`, `poetry.lock`,
+  `Cargo.lock`, `go.sum`. Naming the tool (`bun`, `uv`) makes agents use it more
+  than 100x as often as leaving it implicit.
+- **Test, lint, format, typecheck commands.** From `package.json` scripts,
+  `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`. Prefer the exact
+  invocation with flags.
+- **Unusual tooling.** `just`, `mise`, `nix`, `devbox`, `turbo`, `nx`, custom
+  wrappers.
+- **Framework, only when it informs a non-obvious convention.** "Uses Next.js"
+  is noise. "App Router, not Pages Router" may earn a line.
+- **Monorepo layout.** Workspace files (`pnpm-workspace.yaml`, `turbo.json`,
+  `nx.json`, `go.work`, Cargo workspace) and top-level `apps/`, `packages/`,
+  `services/`, `infra/`.
 
-### 3. Interview the user (only when needed)
+### 3. Classify every existing line
 
-The skill can't discover subjective conventions. Adapt interactivity to the
-situation:
+When a file already exists, sort each line into one bucket and give it a
+destination. Show this table to the user in stage 6.
 
-- **If the user said "ask me" / "interview me"** — walk through each proposed
+| Bucket        | Example                                                                                            | Destination                                             |
+| ------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Context       | `pnpm test --filter=api`; "auth is session-based, not the JWT code in src/auth-legacy"             | Keep in `AGENTS.md`                                     |
+| Gotcha        | "the dev DB seed script drops the `events` table"                                                  | Keep in `AGENTS.md`                                     |
+| Compensation  | "always run tests"; "double-check"; "be thorough"; "no bullet points"; "you are a senior engineer" | Delete, or the other tool's file                        |
+| Derivable     | directory trees; dependency lists; architecture overviews the code shows                           | Delete                                                  |
+| Procedure     | a 20-line deploy or release checklist                                                              | Skill                                                   |
+| Path-specific | rules that only apply under `apps/billing/`                                                        | `.claude/rules/` with `paths:`, or a nested `AGENTS.md` |
+| Enforcement   | "never edit `.env`"; "never push to main"                                                          | Hook or permission deny rule                            |
+| Personal      | "I prefer tabs"; "call me Matt"                                                                    | Auto memory or `~/.claude/CLAUDE.md`                    |
+| Linter's job  | semicolons, import order, naming case                                                              | ESLint, Prettier, Ruff, rustfmt                         |
+
+Keep failure-driven rules even when they look odd. A specific line like "do not
+add event handlers when the framework handles reactivity" usually exists because
+of a real incident. Keep it unless the user confirms it is obsolete.
+
+### 4. Interview the user (only when needed)
+
+- **If the user said "ask me" or "interview me":** walk through each proposed
   section before writing.
-- **If the user said "just do it"** — draft from survey + discovery and present
-  the result for feedback.
-- **Default** — use judgment. Ask only when there's genuine ambiguity the repo
-  can't resolve.
+- **If the user said "just do it":** draft from discovery and present the
+  result.
+- **Default:** ask only when the repo cannot resolve the question.
 
-Good questions when you do ask:
+Questions that pay for themselves:
 
-- "What has Claude (or Cursor / Codex) been getting wrong in this project?"
-- "Any conventions here that go against common patterns for [detected stack]?"
-- "Is there a file, module, or domain concept it keeps failing to find?"
+- "What has Claude (or Cursor, Codex) been getting wrong in this project?"
+- "Which conventions here go against the common pattern for this stack?"
+- "Which model generation does the team run?" Claude 5 generation means cut
+  compensation lines hard. Mixed tools on older models means those lines move to
+  that tool's file rather than staying in `AGENTS.md`.
+- "Does anyone work on Windows, on Bedrock, Vertex, or Foundry, or keep a
+  `CLAUDE.local.md`?" These decide the wiring in stage 7.
 
-### 4. Decide on structure
+### 5. Decide on structure
 
 Single-package project: one root `AGENTS.md`. Monorepo: see the Monorepo section
-below before drafting.
+before drafting.
 
-### 5. Draft
+### 6. Draft and propose
 
-Use the template in the Output Format section. Apply every rule in the Writing
-Patterns section. Before writing the file, run the Final Checks at the end of
-this document.
+Use the skeleton in the Output format section and the Writing patterns. For an
+existing file, show what is kept, what is cut, and why, before writing. The user
+may rescue a line you flagged because of context you lack. Skip the proposal
+only when the user said "just do it".
 
-### 6. Wire up CLAUDE.md
+### 7. Wire it up for Claude Code
 
-The goal either way: `AGENTS.md` is the single source of truth, and `CLAUDE.md`
-resolves to the same content so every tool reads it. `AGENTS.md` is read
-natively by Claude Code, Codex CLI, Cursor, Copilot, Gemini CLI, and Windsurf;
-`CLAUDE.md` keeps Claude Code's import behavior.
+See the next section. Decide, state the one-line reason, and apply.
 
-There are two ways to connect them. Decide which, then confirm with the user:
+### 8. Verify
 
-- **Symlink** (`ln -s AGENTS.md CLAUDE.md`) — `CLAUDE.md` becomes a pointer to
-  `AGENTS.md`, so the two are literally one file. Zero drift, zero extra budget,
-  nothing to keep in sync. The cost: a symlink can hold _only_ `AGENTS.md`'s
-  content — there's nowhere to put Claude-only additions.
-- **Import** — `CLAUDE.md` is a real file containing `@AGENTS.md`, optionally
-  followed by Claude-specific content. Costs one tiny extra file and the
-  discipline of not letting it accrete, but it's the only option when you
-  genuinely need Claude-only rules.
+Tell the user how to confirm the file loads: run `/context` or `/memory` in the
+repo and look for the file under Memory files (Claude Code 2.1.280 or later
+lists a directly-read `AGENTS.md`). Suggest `/doctor`, which proposes trims for
+a checked-in CLAUDE.md, and the delete-and-observe check from the Model upgrade
+section when the team has just moved to a newer model.
 
-**Recommendation rule:** if the project has genuinely Claude-specific content
-that has no better home, use the import form and append that content below
-`@AGENTS.md`. Otherwise default to the symlink — it's the simplest thing that
-can't drift.
+## Wiring: AGENTS.md alone, or an import
+
+`AGENTS.md` is the source of truth. Codex, Cursor, Copilot, Gemini CLI,
+Windsurf, and about two dozen other tools read it natively. Claude Code reads it
+natively since v2.1.277 when there is no `CLAUDE.md`, `.claude/CLAUDE.md`, or
+`CLAUDE.local.md` in the working directory or any directory above it.
+
+**Default: `AGENTS.md` only. No `CLAUDE.md`.** One file, zero drift, nothing to
+keep in sync.
+
+**Add a `CLAUDE.md` that imports it when any of these hold:**
+
+- There is Claude-only content with no better home (see below).
+- Someone runs Claude Code on Bedrock, Vertex, or Foundry, with telemetry
+  disabled, or on a version below 2.1.277.
+- Someone keeps a `CLAUDE.local.md`, or a `CLAUDE.md` exists in an ancestor
+  directory that cannot be removed. Either one switches Claude Code to
+  CLAUDE.md-only mode and hides `AGENTS.md`.
+- An `InstructionsLoaded` hook must fire for the file. It does not fire for a
+  directly-read `AGENTS.md`.
+
+The import form never double-loads: Claude Code skips an `AGENTS.md` it already
+read through an import, whatever the Project instructions setting.
 
 ```markdown
 @AGENTS.md
 
-## Claude-specific
+## Claude Code
 
-- When compacting, preserve the full list of modified files and any test
-  commands.
+- Use plan mode for changes under `src/billing/`.
 ```
 
-Present the recommendation to the user with the one-line reason ("no
-Claude-specific content here, so I'll symlink" / "you have compaction rules, so
-I'll use the import form"), and let them override. Some teams avoid committed
-symlinks (Windows checkouts, tools that don't follow them) and prefer the import
-form regardless — honor that.
+**Symlink (`ln -s AGENTS.md CLAUDE.md`)** is documented but not recommended. The
+Edit and Write tools refuse to write through a symlink, and a Windows checkout
+turns a committed symlink into a one-line text file. Leave an existing symlink
+alone or delete it; do not create new ones.
 
-Only treat content as Claude-specific when it's a behavior other tools don't
-share **and** that doesn't have a better home. Many Claude-specific behaviors
-belong in subagent frontmatter, hooks, or `settings.json` instead — see the next
-section. Cross-tool rules belong in `AGENTS.md`.
+**Remove old workarounds** when you find them:
 
-## Pushing content out of the always-loaded budget
+- A `SessionStart` hook that prints `AGENTS.md`: delete it, or Claude gets two
+  copies.
+- A `CLAUDE.md` that says "read AGENTS.md" in prose: delete it, or replace the
+  sentence with `@AGENTS.md`.
+- A `CLAUDE.md` that duplicates `AGENTS.md` verbatim: delete it.
 
-`AGENTS.md` and `CLAUDE.md` load every session. When something doesn't need to
-load every session, push it to a venue that loads on demand or that enforces
-deterministically:
-
-- **`.claude/rules/*.md` with `paths:` frontmatter** — loads on demand when
-  Claude touches a matching file (e.g. `paths: ["apps/billing/**"]`). Rules
-  without `paths:` load unconditionally at startup at the same priority as
-  `CLAUDE.md`. Known bug: user-level `~/.claude/rules/` files with `paths:`
-  silently never fire — keep path-scoped rules at the project level only
-  ([gh #21858](https://github.com/anthropics/claude-code/issues/21858)).
-- **Skills** — load conditionally based on description match. Right home for
-  deployment runbooks, niche API patterns, migration guides, anything that's
-  only relevant in a small slice of sessions.
-- **Subagents** — for behavioral rules that should bind a specific worker (e.g.
-  "review subagents always run on Haiku", "the research subagent is restricted
-  to read-only `permissionMode`"). Declare in subagent frontmatter (`model`,
-  `tools`, `permissionMode`, `skills`, `hooks`, etc.) rather than in
-  always-loaded prose — the rule then only takes effect when that subagent runs.
-  Subagents are invoked deliberately, not auto-attached to file paths; for
-  path-scoped rules use `.claude/rules/` instead.
-- **`.claude/settings.json`** — for deterministic behavior, not guidance.
-- **Hooks** — for hard requirements that must never be violated.
-
-## What earns its place
-
-- **Exact commands with flags.** `pnpm test --filter=api` beats "run the tests
-  for the api package".
-- **Non-obvious tooling choices.** "Use `bun`, not `npm`" — because Claude's
-  default is usually `npm`.
-- **Architectural decisions that contradict what the code implies.** "Auth uses
-  session tokens with Redis — not the JWT setup still in `src/auth-legacy/`."
-- **Team conventions that go against common patterns.** "All imports use `@/`
-  aliases; never use relative paths across module boundaries."
-- **Domain concepts Claude keeps rediscovering.** Describe the _concept_, not
-  the file path. Paths change; concepts survive refactors.
-- **Failure-driven rules.** Rules added because Claude actually failed at
-  something specific, with a short note on what went wrong.
-
-## What wastes your budget
-
-Cut these aggressively, especially when auditing an existing file:
-
-- **Personality instructions.** "Act like a senior engineer." Adds noise,
-  changes nothing.
-- **Style guides.** Semicolons, tabs vs spaces, import ordering, naming
-  conventions — these belong in ESLint, Prettier, Ruff, rustfmt, gofmt. Never
-  send an LLM to do a linter's job.
-- **Directory trees and codebase overviews.** Claude discovers structure on its
-  own.
-- **Code snippets.** They go stale fast and burn tokens every session.
-- **Self-evident practices.** "Write clean code", "handle errors gracefully",
-  "add tests", "follow DRY" are all noise.
-- **Anything Claude already does correctly without being told.**
-- **Duplicates of information in README, package.json, tsconfig, or CI
-  configs.** One study found 28.7% of lines in real cursor rules duplicated info
-  the AI could already access.
-
-When pruning, err on the side of cutting. If you're uncertain whether a line
-earns its place, cut it and let the user ask for it back. The file's job is to
-stay under the compliance budget.
-
-## Writing patterns
-
-Apply these to every line.
-
-**Imperative for behaviors, declarative for facts.** Behaviors are rules the
-model should follow; facts describe the project. Phrasing facts as imperatives
-("YOU MUST use bun") can trip prompt-injection defenses and cause Claude to
-surface the text to the user instead of treating it as context.
-
-- Yes (behavior): `Use named exports exclusively.`
-- Yes (fact): `This repo uses bun for package management and tests.`
-- No (behavior, descriptive): `It's preferred that default exports be avoided.`
-- No (fact, imperative): `YOU MUST use bun for package management.`
-
-**Positive, not negative.** Negated concepts still activate the concept being
-negated — flipping negatives to positives has been shown to cut rule violations
-roughly in half.
-
-- Yes: `Use the logger utility in src/lib/logger.ts`
-- No: `Never use console.log`
-
-**Every prohibition carries a rationale and an alternative.** This lets Claude
-generalize to related situations it wasn't explicitly told about.
-
-- Yes:
-  `Never force-push to shared branches — it rewrites history other collaborators depend on. Use --force-with-lease on personal branches only.`
-- No: `Never force-push.`
-
-Specific negative rules are OK when they describe a concrete failure mode Claude
-has hit ("don't add event handlers when the framework handles reactivity"). The
-test is specificity: vague negatives are the problem, not negatives in general.
-
-**Commands in code fences, not prose.** `pytest -xvs` in a fence gets followed;
-"run pytest" in prose gets buried.
-
-**One instruction per bullet.** Combining multiple rules in one line reduces
-compliance with all of them.
-
-**Use MUST / IMPORTANT sparingly.** Reserve them for 3-5 rules that truly cannot
-be broken. If everything is IMPORTANT, nothing is.
-
-**Document domain concepts, not file paths.** "Authentication uses session
-tokens with Redis-backed storage" survives refactors; "auth logic lives in
-src/auth/handlers.ts" breaks the moment someone moves the file.
-
-**Use HTML comments for maintainer notes.** `<!-- ... -->` blocks are stripped
-before injection into Claude's context. Use them to record why a rule exists or
-which incident motivated it — context that helps future humans audit the file
-without spending Claude's token budget.
-
-**Primacy and recency anchoring.** LLMs weight the beginning and end of context
-most heavily. Put the 3 most-critical rules in the first section _and_ the last
-section, with intentional duplication. Less critical content goes in the middle.
-
-## Output format
-
-Use this skeleton as the starting point. Adjust section names when it makes
-sense, but keep the primacy/recency anchoring and stay lean. Target 60-80 lines
-for a typical project; 40 is fine; over 120 is a red flag.
-
-```markdown
-# CRITICAL — Read first
-
-- [Most-violated rule #1, with rationale]
-- [Most-violated rule #2, with rationale]
-- [Most-violated rule #3, with rationale]
-
-## Commands
-
-- `exact command` — what it does
-
-## Conventions
-
-- Convention — why it matters
-
-## Architecture
-
-Brief prose description of non-obvious patterns and key decisions. Reference
-deeper docs by path: see `docs/api-guide.md`. Use prose references, not
-@-imports — @ expands the file into context every session, eating your token
-budget even when irrelevant.
-
-# CRITICAL — Read last
-
-- [Same 3 critical rules repeated]
-```
-
-Heading rules: H1 for the critical anchors and any top-level split; H2 for
-sections; H3 for subsections only when needed; never H4+. Flat beats deep.
-
-Do not strip Markdown formatting. Headers and bold serve as parsing landmarks,
-especially for smaller models like Haiku.
+**What counts as Claude-only content.** A behavior other tools do not share
+_and_ that has no deterministic or on-demand venue. Compaction instructions
+qualify. Plan-mode preferences qualify. Most other candidates belong in subagent
+frontmatter, hooks, `settings.json`, or a skill. Compensation lines that another
+tool's older model still needs go in that tool's own file (`.cursor/rules/`,
+`.github/copilot-instructions.md`), not in `AGENTS.md`, because model families
+are not interchangeable and `AGENTS.md` is read by all of them.
 
 ## Monorepo handling
 
-Claude Code and similar tools walk up the directory tree from the current
-working directory, loading every `AGENTS.md` / `CLAUDE.md` they find. Files in
-_child_ directories load lazily, only when the agent actually touches files in
-that subtree. Siblings never cross-contaminate. This is what makes nested files
-work: they scope automatically without any explicit wiring.
+Claude Code and similar tools load every instruction file from the working
+directory up to the root at session start. Files in child directories load
+lazily, when the agent reads a file in that subtree. Siblings never
+cross-contaminate. Nested files scope themselves with no extra wiring.
 
-**Decision rule for the root file:** include a rule at the root only if it
-applies to ~30%+ of the codebase. Everything else belongs in a nested file.
+**One rule that changes the wiring decision:** under Claude Code's default
+setting, nested `AGENTS.md` files load only when no `CLAUDE.md` exists in the
+working directory or above it. A root `CLAUDE.md` of any size, including a
+one-line `@AGENTS.md` import, turns nested `AGENTS.md` discovery off. Each
+nested `AGENTS.md` then needs its own sibling `CLAUDE.md` with `@AGENTS.md`. The
+`claude-md-and-agents-md` setting fixes this per user but is ignored in project
+settings, so a repo cannot commit the fix. In monorepos, prefer `AGENTS.md`
+only, at every level.
 
-**When to create a nested AGENTS.md** (in `apps/web/`, `services/api/`,
-`infra/`, etc.):
+**Root file rule:** include a rule at the root only if it applies to roughly 30%
+or more of the codebase. Everything else belongs in a nested file.
 
-- The package has a distinct tech stack (e.g., `apps/web` is Next.js,
-  `services/ingest` is Go, `apps/mobile` is Expo).
-- The package has commands or conventions that differ meaningfully from the rest
-  of the repo.
-- The package has its own domain concepts that would confuse an agent working
-  elsewhere.
-- `infra/` almost always warrants its own file — Terraform / CDK / Pulumi
-  conventions rarely apply to app code.
+**Create a nested `AGENTS.md`** in `apps/web/`, `services/api/`, `infra/`, and
+similar when:
 
-**When not to:** if a package just has slightly different lint config or one
-minor convention, keep it in the root file. Creating a 10-line nested file for
-one rule is usually worse than adding that rule to the root.
+- The package has a distinct stack (Next.js here, Go there, Expo over there).
+- The package has commands or conventions that differ from the rest.
+- The package has domain concepts that would confuse an agent working elsewhere.
+- It is `infra/`. Terraform, CDK, and Pulumi conventions rarely apply to app
+  code.
 
-**Monorepo root file** should contain:
+**Do not** create a 10-line nested file for one rule. Put that rule in the root.
 
-- Workspace-level commands (`pnpm -r test`, `turbo run build`,
-  `cargo test --workspace`)
-- Cross-cutting conventions that apply across packages
-- A brief map of which subdirectories have their own `AGENTS.md`
-
-The map helps humans and agents know what exists. Use prose references, not
-`@`-imports — the nested files load automatically when Claude works in those
-directories. Example:
+**The root file** holds workspace-level commands (`pnpm -r test`,
+`turbo run build`, `cargo test --workspace`), cross-cutting conventions, and a
+short map of which subdirectories have their own file. Use prose for the map,
+not `@` imports; the nested files load on their own.
 
 ```markdown
 ## Package-specific rules
+
+Each directory below has its own `AGENTS.md`, loaded when you work there:
 
 - `apps/web/` — Next.js App Router conventions and component patterns
 - `services/ingest/` — Go style and error handling
 - `infra/` — Terraform module conventions
 ```
 
-**Nested files follow all the same rules** as the root — lean, imperative,
-positive, failure-driven. They should contain _only_ what's specific to that
-subtree. Never duplicate root rules in nested files; the loader concatenates
-them.
+Nested files follow the same rules as the root and contain only what is specific
+to that subtree. Never repeat root rules in nested files; the loader
+concatenates them.
+
+## Pushing content out of the always-loaded file
+
+`AGENTS.md` loads every session. Anything that does not need to be in every
+session goes to a venue that loads on demand or enforces deterministically:
+
+- **`.claude/rules/*.md` with `paths:` frontmatter.** Loads when Claude reads a
+  matching file (`paths: ["apps/billing/**"]`). `paths` is the only frontmatter
+  field; there is no `priority`. Rules without `paths` load at startup like
+  CLAUDE.md. User-level `~/.claude/rules/` with `paths` works.
+- **Skills.** Anything that is a procedure rather than a fact: deploy runbooks,
+  release checklists, verification steps, migration guides, niche API patterns.
+  Anthropic's own advice: put the verification procedure in a skill and
+  reference it from the instruction file. Keep the exact build and test commands
+  in `AGENTS.md`; move the checklist out.
+- **Subagents.** Rules that bind one worker ("review runs on Haiku", "research
+  is read-only"). Declare them in frontmatter (`model`, `tools`,
+  `permissionMode`, `omitClaudeMd`). The built-in Explore and Plan agents skip
+  CLAUDE.md, so a rule that must reach them goes in the delegating prompt.
+- **Hooks** for anything that must happen every time, and **permission deny
+  rules** for anything that must never happen. "Never edit `.env`" in prose is a
+  request. A `PreToolUse` hook is enforcement.
+- **`settings.json`** for deterministic behavior, not guidance.
+- **Auto memory** for personal preferences and corrections. It is on by default,
+  per repo, machine-local, and Claude skips anything the instruction files
+  already say. "I prefer tabs" belongs there or in `~/.claude/CLAUDE.md`, not in
+  a committed file. When auditing, skim `MEMORY.md` for entries that became team
+  conventions and should graduate into `AGENTS.md`.
+
+## What earns its place
+
+- **Exact commands with flags.** `pnpm test --filter=api` beats "run the api
+  tests".
+- **Non-obvious tool choices.** "This repo uses `bun` for install, scripts, and
+  tests."
+- **Gotchas.** Non-obvious behaviors, required env vars, the seed script that
+  drops a table, the flaky test that needs `--runInBand`.
+- **Decisions that contradict what the code implies.** "Auth uses session tokens
+  in Redis. The JWT code in `src/auth-legacy/` is dead."
+- **Conventions that differ from the tool's defaults.** "Imports use `@/`
+  aliases across module boundaries."
+- **Repository etiquette.** Branch naming, PR conventions, commit format.
+- **Domain concepts Claude keeps rediscovering.** Describe the concept, not the
+  path. Paths change; concepts survive refactors.
+- **An exemplar to copy.** "New route handlers follow
+  `src/api/handlers/users.ts`." A pointer to real code beats a prose description
+  of the pattern. Use it only for stable, well-known files.
+- **Failure-driven rules.** Added because Claude failed at something specific,
+  with a short reason.
+
+## What wastes the budget
+
+Cut these, especially when auditing an existing file:
+
+- **Compensation for older models.** "Always run the tests", "verify your work",
+  "double-check", "be thorough", "don't be lazy", "hold findings for the final
+  response", "do not use bullet points or bold". Claude 5 generation models
+  verify on their own and over-verify when told to. Anthropic's model pages say
+  to remove these.
+- **Personality and role-play.** "Act like a senior engineer." Changes nothing.
+- **Shouting.** `CRITICAL`, `MUST`, `NEVER` on many lines. If everything is
+  important, nothing is.
+- **Examples of ordinary behavior.** Examples anchor the model to the example.
+  Removing them was one of the largest wins in Claude Code's own prompt.
+- **Style guides.** Semicolons, tabs, import order, naming. A linter's job.
+- **Directory trees, dependency lists, architecture overviews.** Claude reads
+  the repo. `/doctor` cuts exactly these.
+- **Code snippets.** They go stale and cost tokens every session.
+- **Self-evident practices.** "Write clean code", "handle errors", "add tests",
+  "follow DRY".
+- **Duplicates of README, package.json, tsconfig, or CI config.**
+- **Contradictions.** Two rules that disagree, or a rule that fights the model's
+  own defaults. Resolve or delete.
+
+When in doubt, cut it and let the user ask for it back.
+
+## Writing patterns
+
+- **Describe the target and the reason; let the model judge.** Anthropic
+  replaced "Never write multi-paragraph docstrings" with "Write code that reads
+  like the surrounding code: match its comment density, naming, and idiom." A
+  reason lets the model generalize to cases you did not list.
+- **Positive over negative.** "Use the logger in `src/lib/logger.ts`" beats
+  "Never use console.log". Keep a negative only for a concrete failure mode, and
+  give it three parts: the construct to use, one line of reasoning, then the
+  category to avoid.
+- **Imperative for behaviors, declarative for facts.** "Use named exports."
+  "This repo uses bun." Not "YOU MUST use bun."
+- **Commands in code fences with exact flags.**
+- **One instruction per bullet.**
+- **No emphasis by default.** Add `IMPORTANT` to one line only after Claude has
+  skipped that line repeatedly. Never to more than a few lines.
+- **No duplication, no anchoring blocks.** Do not repeat rules at the top and
+  bottom. Order sections by value: commands and gotchas first.
+- **Concepts over paths for architecture; exemplars for conventions.**
+- **HTML comments for maintainer notes.** `<!-- why this rule exists -->` is
+  stripped before the model sees it. Use them to record the incident behind a
+  rule so humans can audit it later at zero context cost.
+- **Say what the repo is for in one or two sentences.** Then stop describing and
+  start listing what the model needs.
+
+## Output format
+
+```markdown
+# <repo name>
+
+One or two sentences on what this repo is and who uses it.
+
+## Commands
+
+- `pnpm test --filter=api` — unit tests for the API package
+- `pnpm typecheck` — run before opening a PR
+
+## Gotchas
+
+- The dev seed script drops the `events` table. Run it only on a fresh DB.
+- Integration tests need a local Redis on 6380, not the default 6379.
+
+## Conventions that differ from defaults
+
+- Imports use `@/` aliases across module boundaries.
+- New route handlers follow `src/api/handlers/users.ts`.
+
+## Architecture decisions
+
+Auth uses session tokens stored in Redis. The JWT code in `src/auth-legacy/` is
+dead and scheduled for removal. Deeper docs: see `docs/api-guide.md`.
+```
+
+Drop any section that would be empty. Add a `## Package-specific rules` map in a
+monorepo root. Reference deeper docs in prose, not with `@`, which expands the
+file into context every session.
+
+**Length.** Target 30 to 60 lines for a typical project. 80 is fine when the
+gotchas are real. Over 120 is a red flag. Anthropic's ceiling is 200 lines per
+file; its own docs example is seven lines.
+
+Headings: H1 for the title, H2 for sections, H3 rarely, never deeper. Keep
+Markdown structure; headers and bullets are parsing landmarks.
+
+## Model upgrade audit
+
+When the team moves to a Claude 5 generation model, or a model release makes
+Claude "surprisingly good" at something the file nags about, run this pass:
+
+1. Classify the file with the stage 3 table.
+2. Delete every compensation line. Start with verification reminders, self-check
+   lines, "be thorough", anti-formatting rules, "hold findings", role-play, and
+   `CRITICAL`/`MUST` emphasis.
+3. Keep every context, gotcha, and failure-driven line.
+4. If another tool on an older model still needs a deleted line, move it to that
+   tool's own config file.
+5. Run a few real tasks. Add a line back only when the model repeatedly stumbles
+   on the same thing, and add the reason with it.
+
+This is the Claude Code team's own method: delete, use it, add back what the
+model demonstrably needs. Boris Cherny's advice is to do it every six months.
+The classification step is what makes it safe: project context does not come
+back by observation, so sort before you delete.
 
 ## Handling an existing bloated file
 
-When asked to audit, clean up, or update an existing `CLAUDE.md` or `AGENTS.md`:
-
-1. **Read the whole file and classify each line** against the "earns its place"
-   and "wastes your budget" criteria above.
-2. **Propose the pruned version to the user before writing.** Show what's being
-   kept, what's being cut, and why. The user may want to rescue something you
-   flagged as filler because of context you don't have.
-3. **Preserve failure-driven rules.** If a line looks odd but specific ("don't
-   add event handlers when the framework handles reactivity"), it probably
-   exists because of a real incident. Keep it unless the user confirms it's
-   obsolete.
-4. **Consolidate, don't duplicate.** If the project has both `CLAUDE.md` and
-   `AGENTS.md`, merge into `AGENTS.md` and connect `CLAUDE.md` to it per Step 6
-   — symlink unless the merge surfaced genuinely Claude-only content, in which
-   case use the `@AGENTS.md` import form with that content appended.
-5. **Flag graduation candidates.** Each rule type has a venue that suits it
-   better than always-loaded prose. Note these to the user even though this
-   skill won't implement them:
-   - Preferences → stay in `AGENTS.md`.
-   - Deterministic behaviors → `.claude/settings.json`.
-   - Hard requirements → hooks or CI.
-   - Behavioral rules bound to a specific worker → subagent frontmatter (e.g.
-     `model`, `permissionMode`, `tools`).
-   - Specialized domain knowledge → a Skill, or `.claude/rules/` with `paths:`
-     frontmatter.
+1. Read the whole file and classify each line (stage 3).
+2. Verify every stack claim against the lockfile and source.
+3. Propose the pruned version before writing, unless told to just do it.
+4. Preserve failure-driven rules unless the user confirms they are obsolete.
+5. Merge `CLAUDE.md` into `AGENTS.md` and wire per the Wiring section. The
+   default is to delete `CLAUDE.md`. Keep a one-line `@AGENTS.md` import only
+   for the reasons listed there.
+6. Flag graduation candidates and their venues: hooks, rules, skills, subagent
+   frontmatter, settings, auto memory. Note them for the user even if this skill
+   does not implement them.
+7. Remove old workarounds: `SessionStart` hooks that print `AGENTS.md`, prose
+   pointers, verbatim duplicates, symlinks.
 
 ## Final checks
 
-Re-read the draft against this checklist before writing the file:
+Re-read the draft against this list before writing:
 
-- [ ] Under 120 lines? (Target 60-80.)
-- [ ] Does every line pass the litmus test ("would removing this cause a
-      mistake")?
-- [ ] Does every prohibition have a rationale and an alternative?
-- [ ] Behaviors phrased imperatively, facts phrased declaratively?
-- [ ] Any prohibitions describe a concrete failure mode with both rationale and
-      alternative?
-- [ ] MUST / IMPORTANT used at most 3-5 times?
-- [ ] Top 3 rules mirrored at the start and end?
-- [ ] No code snippets that will go stale?
-- [ ] No style-guide content a linter could enforce?
-- [ ] Commands in code fences with exact flags?
-- [ ] File paths avoided in favor of domain concepts where possible?
-- [ ] For monorepos: root contains only cross-cutting rules; package-specific
-      rules live in nested files?
-- [ ] `CLAUDE.md` connected to `AGENTS.md` — symlink by default, or the
-      `@AGENTS.md` import form when there's genuinely Claude-only content to
-      append (user confirmed the choice)?
-
-If any check fails, fix it before writing.
-
-# CRITICAL — Read last
-
-- **Point `CLAUDE.md` at `AGENTS.md`.** One source of truth, every AI tool reads
-  it. Symlink by default; use the `@AGENTS.md` import form (with Claude-only
-  rules below it) only when there's genuinely Claude-only content that has no
-  better on-demand or deterministic venue.
-- **Ruthless curation over completeness.** Every line competes for a finite
-  compliance budget. When in doubt, cut.
-- **Every prohibition carries rationale + alternative.** Let the model
-  generalize instead of memorizing.
+- [ ] Every line passes both tests: removal would cause a mistake, and it is
+      here because of the repo, not a model.
+- [ ] No verification reminders, self-check lines, role-play, anti-formatting
+      rules, or `MUST`/`CRITICAL` shouting.
+- [ ] No two lines contradict each other or the tool's defaults.
+- [ ] Stack claims verified against the lockfile and source.
+- [ ] Commands in code fences with exact flags.
+- [ ] Prohibitions carry a reason and an alternative.
+- [ ] No directory trees, dependency lists, style-guide content, or code
+      snippets a linter or the repo already covers.
+- [ ] No duplicated rules at the top and bottom.
+- [ ] Under 120 lines, target 30 to 60.
+- [ ] Monorepo: root has only cross-cutting rules; nested files hold the rest;
+      no root `CLAUDE.md` unless every nested `AGENTS.md` has its own import.
+- [ ] Wiring decided and stated: `AGENTS.md` only, or `@AGENTS.md` import with
+      the reason. No new symlinks. Old workarounds removed.
+- [ ] User told how to verify with `/context` or `/memory`.

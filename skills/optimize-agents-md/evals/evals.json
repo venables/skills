@@ -3,21 +3,51 @@
   "evals": [
     {
       "id": 1,
-      "name": "greenfield-hono",
-      "prompt": "I just started this Hono API project and I want Claude Code and Cursor to follow my conventions. Can you set this up for me?",
-      "expected_output": "A lean AGENTS.md (under 120 lines) that mentions bun (not npm), the actual test/lint/typecheck commands from package.json, and follows the primacy/recency anchoring pattern. A CLAUDE.md containing exactly @AGENTS.md."
+      "name": "greenfield-bun-hono",
+      "prompt": "I just started this Hono API project and I want Claude Code and Cursor to follow my conventions. Can you set this up for me? Go ahead and write the files, no need to check with me first.",
+      "expected_output": "A lean AGENTS.md (30-80 lines, under 120) that names bun (not npm), lists the exact test/lint/typecheck commands from package.json in code fences, and contains no directory tree, personality instructions, verification reminders, or duplicated CRITICAL blocks. No CLAUDE.md is created: Claude Code reads AGENTS.md natively since v2.1.277, and the reply says so. No symlink is created.",
+      "expectations": [
+        "AGENTS.md exists and mentions bun as the package manager and test runner",
+        "AGENTS.md does not tell the agent to use npm",
+        "AGENTS.md contains the exact test, lint, and typecheck commands in code fences",
+        "AGENTS.md is under 120 lines",
+        "AGENTS.md contains no directory tree, no personality instruction, and no verification reminder such as 'always run tests' or 'double-check'",
+        "AGENTS.md does not repeat rules at the top and bottom of the file",
+        "No CLAUDE.md file or symlink is created",
+        "The reply explains that Claude Code reads AGENTS.md natively and no CLAUDE.md is needed"
+      ]
     },
     {
       "id": 2,
-      "name": "bloated-existing",
-      "prompt": "My CLAUDE.md is getting out of hand. Can you clean it up?",
-      "expected_output": "An aggressively pruned AGENTS.md (ideally 60-80 lines, definitely under 120) with the bloat removed: no directory trees, no style guide content, no personality instructions, no code snippets, no self-evident practices. The exact commands and failure-driven rules should survive. CLAUDE.md should become @AGENTS.md."
+      "name": "bloated-claude-md",
+      "prompt": "My CLAUDE.md is getting out of hand. Can you clean it up? Go ahead and write the result, no need to check with me first.",
+      "expected_output": "An aggressively pruned AGENTS.md (30-80 lines, definitely under 120) with the bloat removed: no directory tree, no style-guide content, no personality instructions, no code snippets, no self-evident practices, no verification reminders or CRITICAL/MUST shouting. Stale stack claims that the lockfile contradicts are dropped. The exact commands and every failure-driven gotcha survive. CLAUDE.md is deleted (AGENTS.md is read natively), or reduced to a one-line @AGENTS.md import with a stated reason.",
+      "expectations": [
+        "AGENTS.md exists and is under 120 lines",
+        "AGENTS.md keeps the gotcha about the seed script dropping the events table",
+        "AGENTS.md keeps the gotcha about Redis on port 6380",
+        "AGENTS.md keeps the exact pnpm test and typecheck commands",
+        "AGENTS.md does not mention Zustand, which is not in package.json",
+        "AGENTS.md contains no 'double-check', 'senior engineer', 'ALWAYS run', or 'IMPORTANT' lines",
+        "AGENTS.md contains no directory tree or code snippets",
+        "CLAUDE.md is deleted, or contains only an @AGENTS.md import with a reason given in the reply"
+      ]
     },
     {
       "id": 3,
-      "name": "monorepo-ts",
-      "prompt": "Please restructure the agent instructions for this monorepo following best practices. It's grown too big and mixes cross-cutting rules with package-specific guidance.",
-      "expected_output": "A lean root AGENTS.md with workspace-level commands and cross-cutting rules only, plus a package map pointing to nested files. Nested AGENTS.md files in apps/web, apps/api, and infra containing only package-specific rules (React/Vite, Hono/Zod, Pulumi respectively). Root CLAUDE.md should be @AGENTS.md. No duplication between root and nested files."
+      "name": "monorepo-nested",
+      "prompt": "Please restructure the agent instructions for this monorepo following best practices. It's grown too big and mixes cross-cutting rules with package-specific guidance. Go ahead and write the files, no need to check with me first.",
+      "expected_output": "A lean root AGENTS.md with workspace-level commands and cross-cutting rules only, plus a package map pointing to nested files. Nested AGENTS.md files in apps/web, apps/api, and infra containing only package-specific rules (React/Vite, Hono/Zod, Pulumi respectively). No root CLAUDE.md remains, because a root CLAUDE.md hides nested AGENTS.md files under Claude Code's default setting; if one is kept, every nested AGENTS.md gets a sibling CLAUDE.md import and the reply explains why. No duplication between root and nested files.",
+      "expectations": [
+        "Root AGENTS.md exists and contains the workspace-level pnpm commands",
+        "Root AGENTS.md contains a map of which subdirectories have their own AGENTS.md",
+        "apps/web/AGENTS.md exists and mentions React or Vite",
+        "apps/api/AGENTS.md exists and mentions Hono or Zod",
+        "infra/AGENTS.md exists and mentions Pulumi",
+        "Root AGENTS.md does not contain the package-specific React, Hono, or Pulumi rules beyond the map",
+        "No root CLAUDE.md remains, or every nested AGENTS.md has a sibling CLAUDE.md that imports it and the reply explains the nested-suppression rule",
+        "No rule appears in both the root and a nested file"
+      ]
     }
   ]
 }

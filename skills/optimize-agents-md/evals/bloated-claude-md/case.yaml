@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: bloated-claude-md
+description:
+  Next.js app with a 230-line CLAUDE.md full of filler, compensation rules, and
+  phantom dependencies. Expects a pruned AGENTS.md that keeps the real gotchas
+  and drops the rest.
+tags: [audit]
+context:
+  scaffold_script: fixture.sh
