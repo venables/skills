@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: monorepo-nested
+description:
+  pnpm + turbo monorepo with one root CLAUDE.md mixing cross-cutting and
+  package-specific rules. Expects a lean root AGENTS.md, nested AGENTS.md files,
+  and no root CLAUDE.md that would hide them.
+tags: [monorepo]
+context:
+  scaffold_script: fixture.sh
