@@ -42,21 +42,28 @@ create`) makes a dedicated worktree for each actionable branch, or reuses the
    `<repo-parent>/<repo-name>-<branch-slug>`, flat alongside the repo. Worktrees
    are resolved serially (git locks the repo during `worktree add`) before any
    parallel work starts.
-4. **Works each PR in parallel.** One subagent per actionable PR, each running
-   the `babysit-pr` skill inside its worktree: resolve conflicts by merging
+4. **Works each PR in parallel.** Inside Herdr, it renames the workspace to
+   `<repo> (babysitting)` and opens one pane per PR, 4 per tab in a 2x2 grid (a
+   new tab for each next 4). Each pane is a Claude agent running
+   `/babysit-pr <N>` in the PR's worktree. Outside Herdr, it uses one subagent
+   per PR instead. Either way, each PR runs the `babysit-pr` skill: resolve conflicts by merging
    `origin/main` (never a rebase or force-push on a non-draft PR), run
    `pr-comment-handler` to work the comments, fix any failing CI with `fix-ci`,
    then push.
-5. **Reports back.** A single summary of what was worked, what was skipped, and
+5. **Reports back.** In Herdr mode: the pane map (PR, tab, pane, status), since
+   the agents keep working on their own. Otherwise: a single summary of what was worked, what was skipped, and
    any PR that stopped for a human (divergent conflict, dirty tree, a comment
    needing a design call, a CI failure needing a human, a failed push).
-6. **Cleans up the worktrees.** `wt rm` (the `git-worktree` skill) tears down
+6. **Cleans up the worktrees** (subagent mode only — in Herdr mode the panes
+   still use them, so the report lists them for you to remove later). `wt rm` (the `git-worktree` skill) tears down
    each worktree the sweep created — safely: it never removes the main working
    copy or one with uncommitted changes. A PR that stopped for a human keeps its
    worktree so the work can be picked up in place.
 
 ## Gotchas
 
+- **Herdr mode needs `HERDR_ENV=1` and `herdr` on PATH.** Pane agents start
+  with `--dangerously-skip-permissions` so they run unattended.
 - **Needs `gh` (authenticated), `jq`, and `wt`.** Scanning and discovery run
   through `gh` (comment counts via GraphQL, CI status via `gh pr checks`);
   worktrees are made and removed via the `wt` CLI (the `git-worktree` skill).
@@ -83,6 +90,9 @@ create`) makes a dedicated worktree for each actionable branch, or reuses the
 - `scripts/scan.sh [--repo owner/name]` — your open PRs with per-PR conflict,
   review-comment, and failing-check counts, split into `actionable` and
   `skipped`.
+- `scripts/herdr-grid.sh --repo-name <name> <N>=<worktree-path> ...` — renames
+  the Herdr workspace, builds the 2x2 pane grid (a new tab per 4 PRs), and
+  starts `/babysit-pr <N>` in each pane.
 
 Worktree setup and teardown are handled by the [`git-worktree`](../git-worktree)
 skill (`wt create` / `wt rm`), not bundled scripts.
