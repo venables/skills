@@ -62,12 +62,20 @@ One line that tells someone scanning a list of PRs what changed, without opening
 - Banned: a trailing period, emoji, `[tags]`, and a ticket ID, codename, or file path carrying the meaning.
 - Banned first words: `Added`, `Adds`, `Fixed`, `Fixes`, `Updated`, `Updates`, `Changes`, `WIP`, `Misc`, `Various`, `Cleanup`.
 
-| Instead of                       | Write                                                  |
-| -------------------------------- | ------------------------------------------------------ |
-| `fix: CHK-1042`                  | `fix: stop double-charging cards on retried checkouts` |
-| `fix: patch the retry handler`   | `fix: stop double-charging cards on retried checkouts` |
-| `refactor: update auth.ts`       | `refactor: move session checks into one middleware`    |
-| `feat: wire up the new endpoint` | `feat: let admins export a team's invoices as CSV`     |
+**Write for a cold reader.** The reader has not seen the code, the ticket, or this conversation. Every noun in the title must point to a thing they already know or can find.
+
+- Name the thing as people meet it: the screen, the button, the alert, the email, the endpoint, the command. Not the handler, the job, or the function behind it.
+- Never coin a noun while you read the code. Role nouns built from a verb (`requester`, `approver`, `sender`) and stacks like `the wallet limit requester` assume context the reader does not have. Use one only when the product already says it.
+- Prefer plain verbs: `use`, `show`, `hide`, `stop`, `let`, `add`, `remove`, `send`. A verb with a special meaning in the code (`name`, `route`, `wire`, `gate`) reads as jargon outside it.
+- The test: read the title to a teammate who works on another part of the product. If they ask "what is that?" about any word, rewrite it.
+
+| Instead of                                                            | Write                                                   |
+| --------------------------------------------------------------------- | ------------------------------------------------------- |
+| `fix: CHK-1042`                                                       | `fix: stop double-charging cards on retried checkouts`  |
+| `fix: patch the retry handler`                                        | `fix: stop double-charging cards on retried checkouts`  |
+| `refactor: update auth.ts`                                            | `refactor: move session checks into one middleware`     |
+| `feat: wire up the new endpoint`                                      | `feat: let admins export a team's invoices as CSV`      |
+| `fix: name the wallet limit requester by ID in the staff Slack alert` | `fix: use IDs in the wallet limit increase Slack alert` |
 
 ### 6. Write the body
 
@@ -137,7 +145,7 @@ Give the user the PR URL and a one-line summary. If CI runs on the repo, note th
 ## Non-negotiables
 
 1. Read the diff before you write one word. Memory of the conversation is not a source.
-2. The title passes the imperative test and fits 72 characters.
+2. The title passes the imperative test, fits 72 characters, and uses only nouns a cold reader already knows.
 3. The body opens with the overview line and fits on one screen. Cut before you bold.
 4. `Why` states the problem or goal and the reason for this solution. A PR with no why is not ready.
 5. `How to verify` names what you ran and what a reviewer should see. Unverified work is not a contribution.
@@ -151,6 +159,7 @@ Give the user the PR URL and a one-line summary. If CI runs on the repo, note th
 | Writing the body from memory                | Read the diff and commits; memory drifts from what shipped           |
 | Opening the PR from `main`                  | Stop and branch first; never push to the default branch to open a PR |
 | Title names a ticket or file                | Say what changed and its effect in plain language                    |
+| Title uses a noun coined from the code      | Name the thing as the reader meets it: the alert, screen, or command |
 | Body opens with a heading                   | The first line is the overview: `Changes X so that Y`                |
 | A 20-line `Changes` list                    | Three to seven top-level lines; roll the small edits up              |
 | A `Changes` list of long paragraphs         | One short line per change; the prose belongs in `Why`                |

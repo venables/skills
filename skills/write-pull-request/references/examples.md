@@ -4,17 +4,20 @@ Every "before" is a real shape you will produce if you skip the skill.
 
 ## 1. Title
 
-| Before                                                        | Why it fails                                         | After                                                    |
-| ------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
-| `fixed the bug where users couldnt login sometimes`           | past tense, 49 chars of vagueness, no cause          | `fix: stop login retries failing on expired tokens`      |
-| `fix: CHK-1042`                                               | the ticket carries the meaning; says nothing offline | `fix: stop double-charging cards on retried checkouts`   |
-| `Updates to the auth module.`                                 | not imperative, trailing period, names no change     | `refactor: move token refresh into the auth client`      |
-| `WIP`                                                         | says nothing, survives forever in history            | `test: add a failing test for the null-session path`     |
-| `refactor(api): restructure the response serialization layer` | 58 chars, noun cluster of 4                          | `refactor: extract the response serializer from the API` |
-| `feat: wire up the new endpoint`                              | describes the implementation, not the effect         | `feat: let admins export a team's invoices as CSV`       |
-| `Fix flaky auth test race condition handling`                 | five-word noun cluster wearing a verb                | `fix: the race between login and token refresh`          |
+| Before                                                                | Why it fails                                                                | After                                                    |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `fixed the bug where users couldnt login sometimes`                   | past tense, 49 chars of vagueness, no cause                                 | `fix: stop login retries failing on expired tokens`      |
+| `fix: CHK-1042`                                                       | the ticket carries the meaning; says nothing offline                        | `fix: stop double-charging cards on retried checkouts`   |
+| `Updates to the auth module.`                                         | not imperative, trailing period, names no change                            | `refactor: move token refresh into the auth client`      |
+| `WIP`                                                                 | says nothing, survives forever in history                                   | `test: add a failing test for the null-session path`     |
+| `refactor(api): restructure the response serialization layer`         | 58 chars, noun cluster of 4                                                 | `refactor: extract the response serializer from the API` |
+| `feat: wire up the new endpoint`                                      | describes the implementation, not the effect                                | `feat: let admins export a team's invoices as CSV`       |
+| `Fix flaky auth test race condition handling`                         | five-word noun cluster wearing a verb                                       | `fix: the race between login and token refresh`          |
+| `fix: name the wallet limit requester by ID in the staff Slack alert` | `requester` is a noun coined from the code; `name ... by ID` is code jargon | `fix: use IDs in the wallet limit increase Slack alert`  |
 
 Test each one: "If applied, this PR will **stop double-charging cards on retried checkouts**." The sentence holds.
+
+Then read it cold. A teammate who has not seen the code knows what "the wallet limit increase Slack alert" is: they have seen it in Slack. Nobody outside the handler knows what "the wallet limit requester" is.
 
 ## 2. Overview line
 
