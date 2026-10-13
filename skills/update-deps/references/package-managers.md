@@ -46,8 +46,8 @@ one.
 
 ## Edit specifiers
 
-Change the version in the manifest yourself, then install. Keep the range
-operator:
+Change the version in the manifest yourself, then install. Keep the form that
+the specifier has:
 
 - `^1.2.3` to `^2.0.1`
 - `~1.2.3` to `~1.2.9`
@@ -55,6 +55,9 @@ operator:
 - `catalog:` in `package.json`: change the entry in `pnpm-workspace.yaml`.
 - `npm:other-name@^1.0.0` (an alias): change only the version part. Run
   `pick-version.mjs` against `other-name`.
+
+If the project config sets a style (for example `saveExact: true`), write
+that style. See [range-style.md](range-style.md).
 
 Do not use `pnpm update --latest` or `npm install <pkg>@latest`. They ignore
 the batch plan, can change the range operator, and can choose a version that

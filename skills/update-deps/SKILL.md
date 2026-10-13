@@ -75,8 +75,11 @@ lives and its units. The minimum list:
   the upgrade makes it unnecessary. If so, flag it. Do not remove it yourself.
 - **Engines and runtime.** `engines`, `.nvmrc`, `.node-version`,
   `packageManager`. A target that needs a newer runtime is a flagged upgrade.
-- **Range style.** Keep the operator the project uses (`^`, `~`, or exact).
-  An exact pin with a comment, or a Renovate pin rule, means "do not move".
+- **Range style.** Find how the project writes versions: exact, caret, or
+  tilde. See [references/range-style.md](references/range-style.md). Write
+  every version in that style. A project that pins every version is still
+  upgraded: the new version is written exact. Only one exact pin with a
+  comment, in a project that uses ranges, means "do not move".
 - **Project instructions.** Read `AGENTS.md` / `CLAUDE.md` for dependency
   notes (for example, "stay on React 18").
 
@@ -133,8 +136,9 @@ Do the safest batch first. Make one commit for each batch that passes.
 
 For each batch:
 
-1. **Edit the specifiers.** Change `package.json` files or the catalog. Keep
-   the range operator. Then run the install command. Editing the specifier
+1. **Edit the specifiers.** Change `package.json` files or the catalog. Write
+   the range style of the project (exact stays exact, caret stays caret).
+   Then run the install command. Editing the specifier
    directly works the same way for every package manager, and gives you
    control of the exact version.
 2. **Read the install output.** A new unmet-peer warning or an ignored build

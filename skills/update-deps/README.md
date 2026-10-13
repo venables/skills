@@ -24,6 +24,7 @@ Ask Claude Code in plain English, from the project root:
 
 - **Records a baseline first:** runs the checks CI runs before it changes anything, so a failure that was already there is not blamed on an upgrade.
 - **Reads every project rule:** age gates from `pnpm-workspace.yaml`, `.npmrc`, `.yarnrc.yml`, `bunfig.toml`, Renovate, and Dependabot (the strictest one wins), their exclude lists, catalogs, overrides, pins, `engines`, and dependency notes in `AGENTS.md`.
+- **Writes versions the way the repo does:** exact, caret, or tilde, from `saveExact` / `savePrefix`, the Renovate config, and the existing specifiers. A repo that installs exact versions stays exact.
 - **Picks a safe target per dependency:** `scripts/pick-version.mjs` returns the newest stable version that is old enough, never above the `latest` dist-tag. It also reports what the gate holds back and when it becomes eligible.
 - **Checks each target:** no deprecation, no lost publish provenance, no new install scripts.
 - **Upgrades in batches:** all patch and minor upgrades together, then each major group (for example `vitest` with `@vitest/*`) on its own, with one commit per batch.

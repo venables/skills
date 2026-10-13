@@ -59,10 +59,14 @@ Notes:
   remove it.
 - **`peerDependencies` in a published package.** A change to the peer range
   changes the contract for the consumers of the package. Flag it.
-- **Pins.** An exact version in a project that otherwise uses `^` is probably
-  intentional. Look for a comment, a Renovate `rangeStrategy: pin`, or a note
-  in `AGENTS.md`. If you find a reason, do not move it. If you do not find a
-  reason, upgrade it and keep it exact.
+- **Range style.** Exact, caret, or tilde. The sources and the rules are in
+  [range-style.md](range-style.md). A project that pins every version
+  (`saveExact`, Renovate `rangeStrategy: pin`) has an exact style. That is
+  not a hold. Upgrade it and write the new version exact.
+- **Pins.** One exact version in a project that otherwise uses `^` is probably
+  intentional. Look for a comment, a Renovate `packageRules` entry for that
+  package, or a note in `AGENTS.md`. If you find a reason, do not move it. If
+  you do not find a reason, upgrade it and keep it exact.
 
 ## Ignore and hold rules
 
