@@ -71,8 +71,9 @@ lives and its units. The minimum list:
 - **Catalogs.** In a pnpm workspace, a dependency with a `catalog:` specifier
   gets its version from `pnpm-workspace.yaml`. Change the catalog, not the
   `package.json`.
-- **Overrides and resolutions.** Do not remove or change an override unless
-  the upgrade makes it unnecessary. If so, flag it. Do not remove it yourself.
+- **Overrides and resolutions.** Do not change an override during the upgrade
+  batches. The `fix-audit` skill cleans the overrides in step 5, after the
+  upgrades show which ones are still necessary.
 - **Engines and runtime.** `engines`, `.nvmrc`, `.node-version`,
   `packageManager`. A target that needs a newer runtime is a flagged upgrade.
 - **Range style.** Find how the project writes versions: exact, caret, or
@@ -169,25 +170,39 @@ For each batch:
 
    List the small fixes in the commit body.
 
-## 5. Final checks
+## 5. Fix the audit
+
+Upgrades change the audit result in two ways. They remove advisories, and they
+make old overrides unnecessary. So do this after the batches, not before.
+
+- **pnpm or Bun:** run the `fix-audit` skill now. Tell it that `update-deps`
+  called it, so it uses this branch, this baseline, and the project rules you
+  already read. It removes the overrides that another entry covers or that
+  no longer do anything, fixes the advisories that remain (an override is its
+  last choice), and makes its own commits. Keep its report sections for step 7.
+  Add its flagged items to yours.
+- **npm or Yarn:** run the audit (`npm audit`, or
+  `yarn npm audit --all --recursive`) and report the advisories. Do not run
+  `npm audit fix`, because it ignores the batches.
+
+## 6. Final checks
 
 1. Do a clean, frozen install (`pnpm install --frozen-lockfile`, `npm ci`,
    `yarn install --immutable`, `bun install --frozen-lockfile`). The lockfile
    must agree with the manifests.
 2. Run every check one more time.
-3. Run the package-manager audit (`pnpm audit`, `npm audit`, `yarn npm audit`,
-   `bun audit`). Report new advisories. Do not run `audit --fix`, because it
-   can ignore the age gate and the batches.
+3. Run the audit one more time, with the flags that CI uses. It must agree
+   with the result from step 5.
 4. Do not push and do not open a PR unless the user asked for it. If they ask,
    use the `write-pull-request` skill.
 
-## 6. Report and ask
+## 7. Report and ask
 
 Write the report from
 [references/report-template.md](references/report-template.md). It must
 contain: what changed, what the gate held back (with the dates), what needs a
-decision, what the project rules skipped, and the checks that failed before
-you started.
+decision, what the project rules skipped, the audit sections from
+`fix-audit`, and the checks that failed before you started.
 
 Then, if there are flagged upgrades, ask the user with `AskUserQuestion`
 (multi-select) which ones to do now. Put each flagged upgrade in one option.
@@ -208,6 +223,8 @@ you reported.
   more than formatting is a behavior change.
 - Do not use `--force`, `--legacy-peer-deps`, or a new override to hide a
   peer conflict. Report the conflict.
+- Do not run `pnpm audit --fix`, `npm audit fix`, or `bun audit fix` yourself.
+  Audit fixes go through `fix-audit`.
 - Do not approve new build scripts.
 - Do not refresh transitive dependencies in the lockfile only (for example,
   `pnpm update` with no `--latest`) unless the user asks. It makes large

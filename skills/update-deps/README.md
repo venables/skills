@@ -29,6 +29,7 @@ Ask Claude Code in plain English, from the project root:
 - **Checks each target:** no deprecation, no lost publish provenance, no new install scripts.
 - **Upgrades in batches:** all patch and minor upgrades together, then each major group (for example `vitest` with `@vitest/*`) on its own, with one commit per batch.
 - **Fixes or flags:** applies small mechanical fixes (imports, types, renamed options). It reverts and reports any upgrade that changes behavior, touches many files, needs a design choice, or can only pass by weakening a check.
+- **Fixes the audit:** after the upgrades, it runs the `fix-audit` skill (pnpm and Bun) to fix the advisories that remain and to remove overrides that the upgrades made unnecessary.
 - **Reports and asks:** a table of what changed, what needs your decision, what the gate held back, and what the project rules skipped. Then it asks which flagged upgrades to do now.
 
 ## Gotchas

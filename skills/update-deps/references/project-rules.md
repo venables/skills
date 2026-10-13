@@ -55,8 +55,9 @@ Notes:
 - **Overrides.** `overrides` in `pnpm-workspace.yaml` or `pnpm.overrides` in
   `package.json`, npm `overrides`, Yarn `resolutions`, Bun `overrides` /
   `resolutions`. An override often pins a transitive dependency for a security
-  fix or a bug. If an upgrade makes an override unnecessary, report it. Do not
-  remove it.
+  fix or a bug. Do not change overrides in the upgrade batches. After the
+  batches, the `fix-audit` skill removes the entries that an upgrade made
+  unnecessary, and it keeps the entries that have a different purpose.
 - **`peerDependencies` in a published package.** A change to the peer range
   changes the contract for the consumers of the package. Flag it.
 - **Range style.** Exact, caret, or tilde. The sources and the rules are in

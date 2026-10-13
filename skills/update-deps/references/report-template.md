@@ -40,12 +40,17 @@ Links: <migration guide per row>
 | ---------- | ------ | -------------------------------------- |
 | typescript | 7.0.2  | `typescript-eslint` peer range is `<7` |
 
+## Audit
+
+<The Fixed, Overrides, and Ignored sections from `fix-audit`. Its flagged
+items go in "Needs your decision" above.>
+
 ## Checks
 
 - Baseline failures (there before this run): <list or "none">.
 - Final: install, typecheck, lint, test, build all at baseline.
 - Audit: <new advisories, or "no new advisories">.
-- Not touched: <workspace:/link:/git specifiers, overrides that look unneeded>.
+- Not touched: <workspace:/link:/git specifiers>.
 ```
 
 After the report, ask about the flagged upgrades with `AskUserQuestion`.
