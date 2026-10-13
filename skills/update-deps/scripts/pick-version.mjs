@@ -17,6 +17,10 @@
  * Usage:
  *   node pick-version.mjs zod --current 3.23.8 --min-age-minutes 4320
  *
+ * `--same-line` keeps the target on the release line of `--current` (the same
+ * major, or the same minor for 0.x). Use it for the smallest upgrade that
+ * contains a fix, and for an exact override target.
+ *
  * `--input <file>` reads saved `npm view` output instead of the registry.
  */
 
@@ -88,21 +92,24 @@ const parseRegistry = (text) => {
   }
 };
 
-const toCandidates = (time, current, latest) =>
+const releaseLine = ({ core: [major, minor] }) => (major === 0 ? `0.${minor}` : `${major}`);
+
+const toCandidates = ({ time, current, latest, sameLine }) =>
   Object.entries(time)
     .map(([raw, publishedAt]) => ({ version: parseVersion(raw), publishedAt: Date.parse(publishedAt) }))
     .filter(({ version }) => version && version.prerelease.length === 0)
     .filter(({ version }) => compareVersions(version, current) > 0)
     .filter(({ version }) => compareVersions(version, latest) <= 0)
+    .filter(({ version }) => !sameLine || releaseLine(version) === releaseLine(current))
     .toSorted((a, b) => compareVersions(b.version, a.version));
 
-const pick = ({ registry, current, minAgeMinutes, now }) => {
+const pick = ({ registry, current, minAgeMinutes, now, sameLine }) => {
   const latestRaw = registry["dist-tags"]?.latest;
   const latest = latestRaw ? parseVersion(latestRaw) : null;
   if (!registry.time || !latest) fail("registry JSON needs `time` and `dist-tags.latest`");
 
   const gateMs = minAgeMinutes * MS_PER_MINUTE;
-  const candidates = toCandidates(registry.time, current, latest);
+  const candidates = toCandidates({ time: registry.time, current, latest, sameLine });
   const isOldEnough = ({ publishedAt }) => now - publishedAt >= gateMs;
   const chosen = candidates.find(isOldEnough) ?? null;
   const blocked = candidates[0] && !isOldEnough(candidates[0]) ? candidates[0] : null;
@@ -128,6 +135,7 @@ const { values, positionals } = parseArgs({
     "min-age-minutes": { type: "string", default: "0" },
     now: { type: "string" },
     input: { type: "string" },
+    "same-line": { type: "boolean", default: false },
   },
 });
 
@@ -143,4 +151,4 @@ if (!Number.isFinite(minAgeMinutes) || minAgeMinutes < 0) fail("--min-age-minute
 const now = values.now ? Date.parse(values.now) : Date.now();
 const registry = parseRegistry(readRegistry(name, values.input));
 
-process.stdout.write(`${JSON.stringify(pick({ registry, current, minAgeMinutes, now }))}\n`);
+process.stdout.write(`${JSON.stringify(pick({ registry, current, minAgeMinutes, now, sameLine: values["same-line"] }))}\n`);

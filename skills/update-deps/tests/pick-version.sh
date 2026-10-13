@@ -109,6 +109,19 @@ minor='{
 out=$(pick --current 1.2.3 --min-age-minutes 0 <<<"$minor")
 check "a 1.x minor bump is minor" "minor" "$(field bump <<<"$out")"
 
+out=$(pick --current 1.0.0 --min-age-minutes 0 --same-line <<<"$registry")
+check "--same-line stays on the current major" "1.1.1" "$(field target <<<"$out")"
+check "--same-line holds nothing back from another major" "null" "$(field heldBack <<<"$out")"
+
+out=$(pick --current 2.0.0 --min-age-minutes 4320 --same-line <<<"$registry")
+check "--same-line still obeys the age gate" "null" "$(field target <<<"$out")"
+check "--same-line reports what the gate blocks on that line" \
+  '{"version":"2.1.0","eligibleAt":"2026-10-11T00:00:00.000Z"}' \
+  "$(field heldBack <<<"$out")"
+
+out=$(pick --current 0.4.2 --min-age-minutes 0 --same-line <<<"$zero")
+check "--same-line treats a 0.x minor as the line" "0.4.3" "$(field target <<<"$out")"
+
 if pick --min-age-minutes 0 <<<"$minor" >/dev/null 2>&1; then
   check "a missing --current fails" "non-zero exit" "exit 0"
 else
