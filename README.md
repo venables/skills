@@ -4,22 +4,25 @@ Matt Venables' Claude Code / agent skills, grouped by what they're for.
 
 ## Reviewing code
 
+The skills that review a PR and post the result (`panel-review`, `auto-review`,
+`auto-post-panel-review-comments`, `recheck-pr`, and `approve-pr`) are in
+[venabots/autoreview](https://github.com/venabots/autoreview), versioned with
+the tool that runs them. Install them from there:
+
+```sh
+npx skills add venabots/autoreview --skill '*' --global
+```
+
 | Skill                                           | Description                                                                                                                                                                                                                                                                          |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [panel-review](./skills/panel-review)           | Fan a code review out to multiple local CLI agents (codex, claude, opencode) in parallel — each driven through the `dash-p` CLI — and amalgamate their findings                                                                                                                      |
 | [panel-review-loop](./skills/panel-review-loop) | Autonomously loop the review-fix-rereview cycle around `panel-review` — judge which findings are worth fixing, fix them, re-review, repeat until clean, then report what was fixed, what was left alone (and why), and any goal deviations                                           |
 | [branch-review](./skills/branch-review)         | Review everything on the current branch against `origin/main`, staged, unstaged, and untracked alike. Findings stay in the session and never reach GitHub                                                                                                                            |
-| [recheck-pr](./skills/recheck-pr)               | The second look after a `panel-review` — adjudicate each prior finding as remediated / explained / moot / outstanding by reading the new code, re-run the panel when the delta is significant, reply to and resolve the threads you're satisfied with, then approve via `approve-pr` |
-| [approve-pr](./skills/approve-pr)               | Approve the GitHub PR you're discussing (usually after a `panel-review`) — auto-detect the PR from your branch and stamp it with a short fun body (LGTM or a silly emoji) when no message is given, or your message verbatim when one is                                             |
-| [pr-review-tab](./skills/pr-review-tab)         | The tab-lifecycle wrapper for a review spawned by `review-prs` — run `auto-review`, close the enclosing Herdr/cmux tab on approval, and with `--babysit` loop `recheck-pr` on an interval until the PR is approvable, then close the tab                                             |
 
 ## Posting review findings
 
 | Skill                                                                       | Description                                                                                                                                                                                                                                                                                 |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [post-panel-review-comments](./skills/post-panel-review-comments)           | Triage findings from a `panel-review` into PR inline comments and Linear tickets via a two-stage select list (auto-falls back to a top-level comment when GitHub rejects an inline)                                                                                                         |
-| [auto-post-panel-review-comments](./skills/auto-post-panel-review-comments) | Zero-touch twin of `post-panel-review-comments` — post the legitimate findings straight to the PR (mergeable suggestion when the fix is a drop-in, a +1 reaction when a bot already raised it), routing uncertain / out-of-scope ones to Linear, no prompts                                 |
-| [auto-review](./skills/auto-review)                                         | One-shot pipeline: run `panel-review`, post the findings via `auto-post-panel-review-comments`, then approve via `approve-pr` with a short LGTM — but only when the PR passes a strict approval gate (full coverage, LOW/polish-only, sound approach, not a draft, and more; see the skill) |
 
 ## Keeping PRs alive
 
