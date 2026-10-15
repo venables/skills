@@ -38,7 +38,9 @@ Everything else — which comments deserve a fix, what the fix is, what's out of
 - Commits each fix separately (one commit per comment), pushes, and replies `Fixed in <sha> — <summary>`.
 - For deferrals: files a Linear ticket (no priority — that's the receiving team's call) and replies with the link.
 - For declines: replies with a short, honest rationale.
-- Resolves each thread it genuinely handled, then reports counts, the pushed commit range, and any Linear links.
+- Resolves each thread it genuinely handled.
+- Re-requests review from each person who asked for changes and whose comments it answered, so the PR goes back into their queue. It never dismisses their review: that block is theirs to lift.
+- Reports counts, the pushed commit range, any Linear links, and who it re-requested.
 
 ## Gotchas
 

@@ -176,9 +176,58 @@ gh api graphql -F threadId="<thread_id>" -f query='
    text you tried to post so the user can finish it by hand, and keep
    going with the rest.
 
-5. **Report back** — a short summary: counts of fixed / deferred /
-   declined, the commit range you pushed, the Linear links you filed, and
-   anything that errored and needs a human.
+5. **Re-request review** from each reviewer who asked for changes and
+   whose comments you answered. A push and a reply do not tell them the
+   PR is ready again; a re-request does. It puts the PR back in their
+   review queue and notifies them. Find who asked for changes:
+
+   ```bash
+   gh api graphql -F owner='{owner}' -F repo='{repo}' -F pr=<pr> -f query='
+     query($owner: String!, $repo: String!, $pr: Int!) {
+       repository(owner: $owner, name: $repo) {
+         pullRequest(number: $pr) {
+           isDraft
+           author { login }
+           latestOpinionatedReviews(first: 100) {
+             nodes { state author { __typename login } }
+           }
+         }
+       }
+     }' --jq '.data.repository.pullRequest | {isDraft,
+       author: .author.login,
+       changes: [.latestOpinionatedReviews.nodes[]
+         | select(.state == "CHANGES_REQUESTED" and .author.__typename == "User")
+         | .author.login]}'
+   ```
+
+   Use `latestOpinionatedReviews`, not `gh pr view --json latestReviews`.
+   A later comment or thread reply hides a request for changes from
+   `latestReviews`, but the request still blocks the merge.
+
+   Re-request from each login in `changes` that meets all of these:
+   - You replied this run to at least one of their threads or to their
+     review summary.
+   - It is not the PR author, and not an `is_bot` author in the fetch
+     output. The query already drops GitHub App accounts.
+
+   Skip the step when the PR is a draft, or when a push, reply or resolve
+   failed. A failed step leaves an answer missing, and the re-request
+   says that every answer is in. Re-request also when you declined a
+   point and left its thread open: the request says "your turn", not "I
+   agree". Send all logins in one call:
+
+   ```bash
+   gh api --method POST "repos/{owner}/{repo}/pulls/<pr>/requested_reviewers" \
+     -f 'reviewers[]=<login>' -f 'reviewers[]=<login2>'
+   ```
+
+   If the call fails, report the logins so the user can re-request by
+   hand.
+
+6. **Report back** — a short summary: counts of fixed / deferred /
+   declined, the commit range you pushed, the Linear links you filed, the
+   reviewers you re-requested, and anything that errored and needs a
+   human.
 
 ## Linear tickets (for deferrals)
 
@@ -213,6 +262,11 @@ the user which comments you'd have deferred so they can file them.
   resolve. So a comment whose fix already landed sits there outdated and
   open indefinitely — verify it against the current code and resolve it,
   don't leave it hanging. These are what `--include-outdated` surfaces.
+- **A re-request does not clear "Changes requested".** GitHub keeps a
+  request for changes in force until that reviewer approves or someone
+  dismisses it. The label on the PR stays red after the re-request; the
+  reviewer's queue is where it shows. Never dismiss the review yourself
+  to clear the label: the block is the reviewer's to lift.
 - **Resolve only what you genuinely handled.** Don't resolve a thread you
   declined if you think the reviewer may reasonably push back — leave that
   one open after replying so they can respond. But an already-addressed
